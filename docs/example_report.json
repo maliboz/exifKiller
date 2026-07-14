@@ -1,0 +1,62 @@
+{
+  "backend": "native-python",
+  "command": "clean",
+  "profile": "aggressive",
+  "results": [
+    {
+      "after_count": 4,
+      "backend": "native-python",
+      "before_count": 9,
+      "command": "clean",
+      "error": null,
+      "file_type": "image",
+      "findings": [
+        {
+          "blocking": true,
+          "category": "identifying",
+          "key": "Artist",
+          "message": "Artist may reveal a person, device, or software fingerprint.",
+          "severity": "high",
+          "source": "metadata",
+          "value": "Unit Tester"
+        }
+      ],
+      "input_path": "C:\\evidence\\photo.jpg",
+      "output_path": "C:\\evidence\\photo_Cleaned.jpg",
+      "profile": "aggressive",
+      "remaining_findings": [
+        {
+          "blocking": false,
+          "category": "filesystem",
+          "key": "FileModified",
+          "message": "FileModified is filesystem metadata and may matter for OPSEC-sensitive use.",
+          "severity": "medium",
+          "source": "metadata",
+          "value": "1970-01-01 00:00:00"
+        }
+      ],
+      "removed_fields": [
+        "Artist",
+        "Software",
+        "GPS.GPSLatitude"
+      ],
+      "sha256_after": "07f7449dc5ab9a1db2c1e3129f5bf4fdd33290afc196188699eab9ccf7cfe77a",
+      "sha256_before": "bf6eafe8f2762f4ff29998f23a7fba0b6a20320f144b4fefcd7dcb91cc962487",
+      "status": "clean",
+      "timestamp_utc": "2026-04-22T12:00:00Z",
+      "tool_version": "0.1.0-alpha",
+      "warnings": []
+    }
+  ],
+  "summary": {
+    "clean": 1,
+    "error": 0,
+    "exit_code": 0,
+    "total_results": 1,
+    "unsupported": 0,
+    "warning": 0
+  },
+  "timestamp_utc": "2026-04-22T12:00:00Z",
+  "tool_version": "0.1.0-alpha",
+  "unsupported_inputs": []
+}

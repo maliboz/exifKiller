@@ -1,0 +1,157 @@
+# Exif Killer
+
+Offline metadata sanitizer and verification tool for DFIR, OSINT, and OPSEC.
+
+![Exif Killer Logo](logo.png)
+
+Exif Killer is a Windows-first alpha project that focuses on trustworthy metadata cleanup instead of vague "trust me" claims. The app stays offline, uses a native Python backend, and always pairs cleaning with verification and structured reporting.
+
+## Threat Model
+
+Exif Killer is designed for scenarios where metadata can expose operator identity, source application details, location hints, or document history. The tool is especially useful when handling:
+
+- images with author, software, or GPS metadata
+- PDFs with DocInfo, XMP, document IDs, or embedded content
+- Office documents with author fields, comment identities, revision traces, or preview thumbnails
+- Windows files that may carry download-zone artifacts or filesystem timeline hints
+
+Exif Killer does not claim to erase every possible forensic artifact in every format. The product goal is narrower and more honest: sanitize what it knows, verify the result, and report what still remains.
+
+## Supported Formats
+
+**Native (no external tools required):**
+
+- Images: `jpg`, `jpeg`, `png`, `webp`, `bmp`, `tiff`, `tif`, `gif`, `svg`
+- Documents: `pdf`, `docx`, `xlsx`, `pptx`
+
+JPEG, PNG, WebP, GIF, and SVG are cleaned **losslessly** — the file's
+segment/chunk structure is rewritten and only metadata carriers are dropped, so
+the image payload is preserved byte-for-byte (no quality loss, no pixel change).
+Any data appended after the image's end marker (hidden thumbnails, stego
+payloads) is discarded. BMP/TIFF use a pixel-copy rebuild.
+
+**Hybrid backend (when [ExifTool](https://exiftool.org/) is on `PATH`):**
+
+- Modern images: `heic`, `heif`, `avif`
+- Video: `mp4`, `mov`, `m4v`, `mkv`, `avi`, `webm`
+- Audio: `mp3`, `flac`, `m4a`, `wav`, `ogg`, `opus`, `aac`
+- Camera RAW: `cr2`, `cr3`, `nef`, `arw`, `dng`, `orf`, `rw2`, `raf`, `pef`, `srw`
+
+These run only when ExifTool is installed; the tool stays fully offline and
+native otherwise, and unsupported formats are reported clearly. Set
+`EXIFTOOL_PATH` to point at a specific binary.
+
+## Cleaning Profiles
+
+- `safe`: removes direct identifying and tracking metadata while prioritizing file compatibility
+- `aggressive`: expands cleanup to thumbnails, revision markers, embedded previews, Windows post-processing, and other higher-risk traces
+
+`safe` is the default profile. `aggressive` is recommended when compatibility tradeoffs are acceptable.
+
+## Verification Model
+
+Exif Killer classifies findings into five categories:
+
+- `identifying`
+- `tracking`
+- `embedded-content`
+- `filesystem`
+- `technical`
+
+Verification fails with `warning` status when any `identifying`, `tracking`, or `embedded-content` findings remain. Filesystem-only leftovers are reported but do not fail verification. Technical fields are retained when they are needed for compatibility or structure.
+
+## Interface Preview
+
+The desktop GUI is available through `python main.py` or the `exif-killer-gui` entrypoint. The GUI follows a simple workflow:
+
+1. Queue files or drag-drop folders.
+2. Run `Scan`.
+3. Run `Clean + Verify`.
+4. Export JSON or CSV evidence.
+
+## CLI Usage
+
+```bash
+exif-killer scan sample.jpg --format text
+exif-killer clean secret.pdf --profile aggressive --format json --report clean-report.json
+exif-killer verify original.docx cleaned.docx --format json
+```
+
+### Timestamp Policy
+
+`clean` can rewrite the cleaned file's filesystem timestamps (modification and
+access on every platform; creation is additionally set on Windows via the Win32
+API). Filesystem dates are a common OPSEC leak, so the policy is configurable:
+
+```bash
+exif-killer clean photo.jpg --timestamp random
+exif-killer clean photo.jpg --timestamp epoch
+exif-killer clean photo.jpg --timestamp custom --timestamp-date 2020-05-01T13:00:00
+exif-killer clean photo.jpg --timestamp keep
+```
+
+- `auto` (default): follow the profile — `aggressive` resets to epoch, `safe` leaves timestamps untouched
+- `keep`: never touch filesystem timestamps
+- `epoch`: reset to `1970-01-01`
+- `random`: generate a plausible random date per file (created ≤ modified ≤ accessed, within a normal usage window) so the file does not stand out
+- `custom`: use `--timestamp-date` (accepts `YYYY-MM-DD` or ISO 8601)
+
+### Stable Exit Codes
+
+- `0`: operation succeeded and no blocking findings remain
+- `1`: usage error or runtime failure
+- `2`: operation completed but blocking findings remain
+- `3`: no supported files were available to process
+
+## JSON Report Shape
+
+Each JSON report entry includes the following core fields:
+
+- `tool_version`
+- `command`
+- `profile`
+- `status`
+- `backend`
+- `input_path`
+- `output_path`
+- `file_type`
+- `sha256_before`
+- `sha256_after`
+- `findings`
+- `removed_fields`
+- `remaining_findings`
+- `warnings`
+- `timestamp_utc`
+
+An example report lives at [docs/example_report.json](docs/example_report.json).
+
+## Local Development
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .[dev]
+pytest
+ruff check .
+mypy
+```
+
+## Security Posture
+
+- Offline-first by default
+- No telemetry
+- No cloud scanning
+- No auto-update agent
+- Structured JSON and CSV evidence for audit trails
+- Windows portable build target for the alpha release
+
+## Known Limitations
+
+- Windows is the primary release target for `v0.1.0-alpha`
+- HEIC/video/audio/RAW cleaning requires an ExifTool binary on `PATH`
+- Recursive archive inspection is not in the alpha scope
+- Creation-time rewriting is Windows-only; modification/access times are set on all platforms
+
+## License
+
+MIT. See [LICENSE](LICENSE).
