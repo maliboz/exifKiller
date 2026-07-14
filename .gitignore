@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.spec
+*.log
+*.zip
+coverage.xml
+htmlcov/
+
+# Test/scratch artifacts
+pytest-cache-files-*/
+_review_tmp_*/
+exif-killer-tests-*/
+exif-killer-lossless-*/
+*_Cleaned.*
+*.egg-info/

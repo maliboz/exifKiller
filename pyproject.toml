@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exif-killer"
+version = "0.1.0a0"
+description = "Offline metadata sanitizer and verification tool for DFIR, OSINT, and OPSEC."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Exif Killer Contributors"}]
+keywords = ["metadata", "forensics", "dfir", "opsec", "osint", "privacy", "pdf", "office"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+  "Topic :: System :: Archiving :: Backup",
+]
+dependencies = [
+  "customtkinter>=5.2.0",
+  "tkinterdnd2>=0.3.0",
+  "Pillow>=10.0.0",
+  "pikepdf>=8.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.10.0",
+  "pip-audit>=2.7.0",
+  "pyinstaller>=6.10.0",
+  "pytest>=8.2.0",
+  "ruff>=0.6.0",
+]
+
+[project.scripts]
+exif-killer = "exif_killer.cli:main"
+exif-killer-gui = "exif_killer.gui:main"
+
+[tool.setuptools.packages.find]
+include = ["cleaners*", "exif_killer*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.mypy]
+python_version = "3.11"
+files = [
+  "exif_killer/cli.py",
+  "exif_killer/constants.py",
+  "exif_killer/hashes.py",
+  "exif_killer/models.py",
+  "exif_killer/reporting.py",
+  "exif_killer/risk.py",
+  "exif_killer/service.py",
+]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+strict_equality = true
