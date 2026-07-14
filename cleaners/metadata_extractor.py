@@ -134,8 +134,9 @@ class MetadataExtractor:
             report = self._extract_pdf(file_path)
         elif ext in ['.docx', '.xlsx', '.pptx']:
             report = self._extract_office(file_path)
-        elif self._exiftool_can_handle():
-            report = self._extract_with_exiftool(file_path)
+        elif ext in ['.mp4', '.mov', '.m4v', '.m4a', '.heic', '.heif', '.avif',
+                     '.mp3', '.flac', '.wav', '.avi']:
+            report = self._extract_media(file_path, ext)
         else:
             report = MetadataReport(file_path=file_path, file_type="unknown")
         
@@ -643,35 +644,45 @@ class MetadataExtractor:
 
         return report
 
-    def _exiftool_can_handle(self) -> bool:
-        try:
-            from .exiftool_backend import exiftool_available
-            return exiftool_available()
-        except Exception:
-            return False
-
-    def _extract_with_exiftool(self, file_path: str) -> MetadataReport:
-        """Extract metadata from exotic formats via the ExifTool backend."""
-        ext = os.path.splitext(file_path)[1].lower()
-        file_type = self._exiftool_file_type(ext)
+    def _extract_media(self, file_path: str, ext: str) -> MetadataReport:
+        """Extract metadata from audio/video/HEIF containers, natively."""
+        file_type = self._media_file_type(ext)
         report = MetadataReport(file_path=file_path, file_type=file_type)
         try:
-            from .exiftool_backend import read_metadata
-            for key, value in read_metadata(file_path).items():
-                report.metadata[key] = self._format_value(value)
+            with open(file_path, 'rb') as handle:
+                data = handle.read()
+
+            from . import isobmff, native_media
+
+            found: Dict[str, str] = {}
+            if ext in ('.mp4', '.mov', '.m4v', '.m4a'):
+                found = isobmff.describe_movie_metadata(data)
+            elif ext in ('.heic', '.heif', '.avif'):
+                found = isobmff.describe_heif_metadata(data)
+            elif ext == '.mp3':
+                found = native_media.describe_mp3(data)
+            elif ext == '.flac':
+                found = native_media.describe_flac(data)
+            elif ext in ('.wav', '.avi'):
+                found = native_media.describe_riff(data)
+
+            for key, value in found.items():
+                report.metadata[key] = value
                 report.raw_fields.append(key)
+                if 'gps' in key.lower():
+                    report.warnings.append("Location metadata detected")
         except Exception as exc:
-            report.warnings.append(f"ExifTool extraction error: {exc}")
+            report.warnings.append(f"Media extraction error: {exc}")
         return report
 
-    def _exiftool_file_type(self, ext: str) -> str:
-        video = {'.mp4', '.mov', '.m4v', '.mkv', '.avi', '.webm'}
-        audio = {'.mp3', '.flac', '.m4a', '.wav', '.ogg', '.opus', '.aac'}
+    def _media_file_type(self, ext: str) -> str:
+        video = {'.mp4', '.mov', '.m4v', '.avi'}
+        audio = {'.mp3', '.flac', '.m4a', '.wav'}
         if ext in video:
             return 'video'
         if ext in audio:
             return 'audio'
-        return 'image'  # heic/heif/avif/raw all carry image-style metadata
+        return 'image'  # heic/heif/avif carry image-style metadata
 
     def _format_value(self, value: Any) -> str:
         """Format a metadata value for display."""

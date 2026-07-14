@@ -19,27 +19,30 @@ Exif Killer does not claim to erase every possible forensic artifact in every fo
 
 ## Supported Formats
 
-**Native (no external tools required):**
+Everything is handled by **pure-Python parsers with no external tools and no
+re-encoding** — the media payload is preserved byte-for-byte and only metadata
+is removed.
 
 - Images: `jpg`, `jpeg`, `png`, `webp`, `bmp`, `tiff`, `tif`, `gif`, `svg`
+- Modern images: `heic`, `heif`, `avif`
+- Video: `mp4`, `mov`, `m4v`, `avi`
+- Audio: `mp3`, `flac`, `m4a`, `wav`
 - Documents: `pdf`, `docx`, `xlsx`, `pptx`
 
-JPEG, PNG, WebP, GIF, and SVG are cleaned **losslessly** — the file's
-segment/chunk structure is rewritten and only metadata carriers are dropped, so
-the image payload is preserved byte-for-byte (no quality loss, no pixel change).
-Any data appended after the image's end marker (hidden thumbnails, stego
-payloads) is discarded. BMP/TIFF use a pixel-copy rebuild.
+How each family is cleaned:
 
-**Hybrid backend (when [ExifTool](https://exiftool.org/) is on `PATH`):**
-
-- Modern images: `heic`, `heif`, `avif`
-- Video: `mp4`, `mov`, `m4v`, `mkv`, `avi`, `webm`
-- Audio: `mp3`, `flac`, `m4a`, `wav`, `ogg`, `opus`, `aac`
-- Camera RAW: `cr2`, `cr3`, `nef`, `arw`, `dng`, `orf`, `rw2`, `raf`, `pef`, `srw`
-
-These run only when ExifTool is installed; the tool stays fully offline and
-native otherwise, and unsupported formats are reported clearly. Set
-`EXIFTOOL_PATH` to point at a specific binary.
+- **JPEG/PNG/WebP/GIF/SVG** — the segment/chunk structure is rewritten and only
+  metadata carriers are dropped, losslessly. Pixels stay byte-identical, and
+  data appended after the image's end marker (hidden thumbnails, stego payloads)
+  is discarded. BMP/TIFF use a pixel-copy rebuild.
+- **MP4/MOV/M4V/M4A** (ISOBMFF) — the `udta`/`meta` metadata boxes (iPhone GPS
+  `©xyz`, device, software, iTunes tags) are neutralised in place, so sample
+  offset tables stay valid and the media is not touched.
+- **HEIC/HEIF/AVIF** — the EXIF/XMP item payloads are zeroed surgically inside
+  `mdat` while the image items are left intact.
+- **MP3** — ID3v2, ID3v1, and APEv2 tags are stripped, keeping the audio frames.
+- **FLAC** — `VORBIS_COMMENT` and `PICTURE` blocks are removed.
+- **WAV/AVI** (RIFF) — `INFO`/`ID3`/`bext` metadata chunks are removed.
 
 ## Cleaning Profiles
 
@@ -148,7 +151,7 @@ mypy
 ## Known Limitations
 
 - Windows is the primary release target for `v0.1.0-alpha`
-- HEIC/video/audio/RAW cleaning requires an ExifTool binary on `PATH`
+- Matroska (`mkv`/`webm`), Ogg/Opus, and camera RAW are not yet natively supported
 - Recursive archive inspection is not in the alpha scope
 - Creation-time rewriting is Windows-only; modification/access times are set on all platforms
 

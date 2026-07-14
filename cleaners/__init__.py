@@ -12,22 +12,19 @@ v3.0 Features:
 
 from .base import BaseCleaner
 from .image_cleaner import ImageCleaner
+from .media_cleaner import MediaCleaner
 from .pdf_cleaner import PDFCleaner
 from .office_cleaner import OfficeCleaner
 from .timestamp_cleaner import TimestampCleaner
-from .exiftool_cleaner import ExiftoolCleaner
-from .exiftool_backend import exiftool_available, exiftool_version
 from .metadata_extractor import MetadataExtractor, MetadataReport, compare_reports
 
 __all__ = [
     'BaseCleaner',
     'ImageCleaner',
+    'MediaCleaner',
     'PDFCleaner',
     'OfficeCleaner',
     'TimestampCleaner',
-    'ExiftoolCleaner',
-    'exiftool_available',
-    'exiftool_version',
     'MetadataExtractor',
     'MetadataReport',
     'compare_reports',
