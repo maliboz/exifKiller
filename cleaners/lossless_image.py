@@ -8,8 +8,8 @@ image payload is preserved byte-for-byte, so cleaning is quality-neutral and
 reversible-proof: the removed bytes are simply gone.
 
 Supported here: JPEG (marker segments), PNG (chunks), WebP (RIFF chunks),
-GIF (extension blocks), SVG (XML). Other formats fall back to the pixel-copy
-cleaner or the ExifTool backend.
+GIF (extension blocks), SVG (XML). BMP/TIFF fall back to the pixel-copy
+cleaner; audio/video containers are handled by the native media engine.
 """
 
 from __future__ import annotations

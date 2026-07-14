@@ -7,19 +7,14 @@ from pathlib import Path
 from typing import Callable, Iterable, Optional
 
 from cleaners import (
-    ExiftoolCleaner,
     ImageCleaner,
+    MediaCleaner,
     MetadataExtractor,
     OfficeCleaner,
     PDFCleaner,
-    exiftool_available,
 )
 
-from .constants import (
-    BACKEND_NAME,
-    EXIFTOOL_EXTENSIONS,
-    NATIVE_EXTENSIONS,
-)
+from .constants import BACKEND_NAME, SUPPORTED_EXTENSIONS
 from .hashes import sha256_file
 from .models import (
     BatchResult,
@@ -46,21 +41,13 @@ class MetadataToolService:
         self.config = config or ToolConfig()
         self._log = logger or (lambda message: None)
         self.extractor = MetadataExtractor(self._log)
-        self.exiftool_enabled = exiftool_available()
         self.cleaners = [
             ImageCleaner(self._log),
+            MediaCleaner(self._log),
             PDFCleaner(self._log),
             OfficeCleaner(self._log),
         ]
-        if self.exiftool_enabled:
-            self.cleaners.append(
-                ExiftoolCleaner(list(EXIFTOOL_EXTENSIONS), self._log)
-            )
-        # Effective supported set depends on whether the ExifTool backend is
-        # present, so exotic formats are only advertised when we can act on them.
-        self.supported_extensions = set(NATIVE_EXTENSIONS)
-        if self.exiftool_enabled:
-            self.supported_extensions |= set(EXIFTOOL_EXTENSIONS)
+        self.supported_extensions = set(SUPPORTED_EXTENSIONS)
         self._configure_cleaners()
 
     def scan_paths(
