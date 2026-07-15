@@ -323,13 +323,22 @@ def render_selftest(report: SelfTestReport) -> str:
             )
         lines.append("")
 
-    if report.damaged or report.errored:
-        lines.append("!! Files the tool did not handle correctly:")
-        for result in report.damaged + report.errored:
-            reason = result.error or "; ".join(
-                f"{c.name}: {c.detail}" for c in result.failed_checks
-            )
+    if report.damaged:
+        lines.append("!! DAMAGED - the tool corrupted these files:")
+        for result in report.damaged:
+            reason = "; ".join(f"{c.name}: {c.detail}"
+                               for c in result.failed_checks)
             lines.append(f"   - {os.path.basename(result.input_path)}: {reason}")
+        lines.append("")
+
+    if report.errored:
+        # A refusal is not a malfunction: it usually means the file is not what
+        # its extension claims. Say so rather than implying the tool misbehaved.
+        lines.append("Not cleaned (refused or failed to parse):")
+        for result in report.errored:
+            lines.append(
+                f"   - {os.path.basename(result.input_path)}: {result.error}"
+            )
         lines.append("")
 
     lines.append(_wishlist_block(report))

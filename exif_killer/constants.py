@@ -45,6 +45,7 @@ MEDIA_EXTENSIONS: Final[tuple[str, ...]] = (
 # TIFF-based camera RAW, cleaned by the native TIFF engine. Metadata tags are
 # removed in place so sensor data and byte offsets never move.
 RAW_EXTENSIONS: Final[tuple[str, ...]] = (
+    ".crw",  # Canon CIFF (not TIFF; handled by the CIFF engine)
     ".cr2",
     ".nef",
     ".nrw",
