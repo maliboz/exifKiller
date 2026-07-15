@@ -7,10 +7,13 @@ FORENSIC FEATURES (v3.0):
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Callable, Optional
+from typing import TYPE_CHECKING, List, Callable, Optional
 import os
 import sys
 import tempfile
+
+if TYPE_CHECKING:
+    from .timestamp_cleaner import TimestampCleaner
 
 
 class BaseCleaner(ABC):
@@ -35,16 +38,16 @@ class BaseCleaner(ABC):
         self._log_callback = log_callback or (lambda msg: None)
         self._reset_timestamps = reset_timestamps
         self._remove_zone_identifier = remove_zone_identifier
-        self._timestamp_cleaner = None
+        self._timestamp_cleaner: Optional['TimestampCleaner'] = None
         self._cleaning_profile = 'safe'
 
         # Timestamp policy applied when _reset_timestamps is True.
         # mode: 'epoch' | 'random' | 'custom'
         self._timestamp_mode = 'epoch'
-        self._timestamp_value = None
-        
+        self._timestamp_value: Optional[str] = None
+
         # New v3.1 features
-        self._output_folder = None  # None = same folder as original
+        self._output_folder: Optional[str] = None  # None = same folder as original
         self._overwrite_mode = False  # If True, overwrite original file
     
     def set_output_folder(self, folder_path: Optional[str]) -> None:

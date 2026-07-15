@@ -107,7 +107,7 @@ class TimestampCleaner:
         # For 1970-01-01 00:00:00 UTC, this should be 0
         try:
             timestamp = dt.timestamp()
-        except:
+        except Exception:
             # Fallback for dates before 1970 on some systems
             timestamp = (dt - datetime(1970, 1, 1, tzinfo=timezone.utc)).total_seconds()
         
@@ -366,7 +366,7 @@ class TimestampCleaner:
                         content = f.read()
                         if 'HostUrl' in content:
                             self._log(f"[!] Download source info found!")
-                except:
+                except Exception:
                     pass
                 
                 # Delete the ADS - try Python first
@@ -374,7 +374,7 @@ class TimestampCleaner:
                     os.remove(ads_path)
                     self._log(f"[OK] Zone.Identifier removed")
                     return True
-                except:
+                except Exception:
                     pass
                 
                 # Try Windows API
@@ -405,7 +405,7 @@ class TimestampCleaner:
     
     def list_alternate_streams(self, file_path: str) -> List[str]:
         """List all alternate data streams on a file."""
-        streams = []
+        streams: List[str] = []
         
         if not self.is_windows:
             return streams
@@ -436,12 +436,12 @@ class TimestampCleaner:
                 os.remove(ads_path)
                 self._log(f"[OK] ADS silindi: {stream_name}")
                 removed += 1
-            except:
+            except Exception:
                 if self._api_ready:
                     try:
                         self.kernel32.DeleteFileW(ads_path)
                         removed += 1
-                    except:
+                    except Exception:
                         pass
         
         return removed

@@ -79,7 +79,7 @@ class PDFCleaner(BaseCleaner):
             # Clean up temp file
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
             
             self.log(f"[OK] PDF cleaned: {os.path.basename(output_path)}")
@@ -218,7 +218,7 @@ class PDFCleaner(BaseCleaner):
                 for key in list(pdf.docinfo.keys()):
                     try:
                         del pdf.docinfo[key]
-                    except:
+                    except Exception:
                         pass
             
             # Method 2: Also try setting to empty values
@@ -226,7 +226,7 @@ class PDFCleaner(BaseCleaner):
                 try:
                     if key in pdf.docinfo:
                         del pdf.docinfo[key]
-                except:
+                except Exception:
                     pass
             
             # Method 3: Try to replace the entire docinfo with empty dict
@@ -239,9 +239,9 @@ class PDFCleaner(BaseCleaner):
                         for key in list(info_ref.keys()):
                             try:
                                 del info_ref[key]
-                            except:
+                            except Exception:
                                 pass
-            except:
+            except Exception:
                 pass
                 
         except Exception as e:
@@ -252,7 +252,7 @@ class PDFCleaner(BaseCleaner):
         try:
             if '/Metadata' in pdf.Root:
                 del pdf.Root['/Metadata']
-        except:
+        except Exception:
             pass
         
         # Also check for metadata in other locations
@@ -260,7 +260,7 @@ class PDFCleaner(BaseCleaner):
             for page in pdf.pages:
                 if '/Metadata' in page:
                     del page['/Metadata']
-        except:
+        except Exception:
             pass
     
     def _remove_piece_info(self, pdf: Pdf) -> None:
@@ -268,7 +268,7 @@ class PDFCleaner(BaseCleaner):
         try:
             if '/PieceInfo' in pdf.Root:
                 del pdf.Root['/PieceInfo']
-        except:
+        except Exception:
             pass
         
         # Check pages too
@@ -276,7 +276,7 @@ class PDFCleaner(BaseCleaner):
             for page in pdf.pages:
                 if '/PieceInfo' in page:
                     del page['/PieceInfo']
-        except:
+        except Exception:
             pass
     
     def _remove_mark_info(self, pdf: Pdf) -> None:
@@ -284,7 +284,7 @@ class PDFCleaner(BaseCleaner):
         try:
             if '/MarkInfo' in pdf.Root:
                 del pdf.Root['/MarkInfo']
-        except:
+        except Exception:
             pass
     
     def _clean_page_metadata(self, pdf: Pdf) -> None:
@@ -297,9 +297,9 @@ class PDFCleaner(BaseCleaner):
                     if key in page:
                         try:
                             del page[key]
-                        except:
+                        except Exception:
                             pass
-        except:
+        except Exception:
             pass
     
     def _remove_document_id(self, pdf: Pdf) -> None:
@@ -307,7 +307,7 @@ class PDFCleaner(BaseCleaner):
         try:
             if '/ID' in pdf.trailer:
                 del pdf.trailer['/ID']
-        except:
+        except Exception:
             pass
     
     def _clean_outlines(self, pdf: Pdf) -> None:
@@ -318,7 +318,7 @@ class PDFCleaner(BaseCleaner):
                 # Remove any SE (structure element) references
                 if '/SE' in outlines:
                     del outlines['/SE']
-        except:
+        except Exception:
             pass
     
     def _clean_names_dict(self, pdf: Pdf) -> None:
@@ -332,7 +332,7 @@ class PDFCleaner(BaseCleaner):
 
                 if not list(names.keys()):
                     del pdf.Root['/Names']
-        except:
+        except Exception:
             pass
 
     def _remove_associated_files(self, pdf: Pdf) -> None:
@@ -395,19 +395,19 @@ class PDFCleaner(BaseCleaner):
             if pdf.docinfo:
                 for key in pdf.docinfo.keys():
                     remaining.append(f"DocInfo:{key}")
-        except:
+        except Exception:
             pass
         
         try:
             if '/Metadata' in pdf.Root:
                 remaining.append("XMP")
-        except:
+        except Exception:
             pass
         
         try:
             if '/ID' in pdf.trailer:
                 remaining.append("ID")
-        except:
+        except Exception:
             pass
 
         try:
@@ -415,7 +415,7 @@ class PDFCleaner(BaseCleaner):
                 for key in ['/EmbeddedFiles', '/JavaScript', '/Dests', '/AP', '/Renditions']:
                     if key in pdf.Root['/Names']:
                         remaining.append(f"Names:{key}")
-        except:
+        except Exception:
             pass
 
         if self._has_associated_files(pdf):
@@ -439,6 +439,6 @@ class PDFCleaner(BaseCleaner):
                     self._clean_names_dict(pdf)
                 elif item == "AF":
                     self._remove_associated_files(pdf)
-            except:
+            except Exception:
                 pass
 

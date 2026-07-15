@@ -1,8 +1,9 @@
 """
 Media Cleaner - native metadata removal for audio and video containers.
 
-Dispatches to the pure-Python ISOBMFF and RIFF/ID3/FLAC strippers. No external
-binaries, no re-encoding: media payloads are preserved byte-for-byte.
+Dispatches to the pure-Python ISOBMFF, Matroska, Ogg, and RIFF/ID3/FLAC
+strippers. No external binaries, no re-encoding: media payloads are preserved
+byte-for-byte.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from __future__ import annotations
 import os
 from typing import Callable, List, Optional
 
-from . import isobmff, native_media
+from . import isobmff, matroska, native_media, ogg
 from .base import BaseCleaner
 
 # ISOBMFF (MP4/QuickTime) family.
@@ -20,13 +21,16 @@ _ISOBMFF_HEIF = {".heic", ".heif", ".avif"}
 _MP3 = {".mp3"}
 _FLAC = {".flac"}
 _RIFF = {".wav", ".avi"}
+# EBML and Ogg families.
+_MATROSKA = {".mkv", ".webm"}
+_OGG = {".ogg", ".oga", ".ogv", ".opus", ".spx"}
 
 
 class MediaCleaner(BaseCleaner):
     """Cleaner for audio/video/modern-image container formats."""
 
     SUPPORTED_EXTENSIONS = sorted(
-        _ISOBMFF_MOVIE | _ISOBMFF_HEIF | _MP3 | _FLAC | _RIFF
+        _ISOBMFF_MOVIE | _ISOBMFF_HEIF | _MP3 | _FLAC | _RIFF | _MATROSKA | _OGG
     )
 
     def __init__(self, log_callback: Optional[Callable[[str], None]] = None):
@@ -71,4 +75,8 @@ class MediaCleaner(BaseCleaner):
             return native_media.strip_flac(data, aggressive)
         if ext in _RIFF:
             return native_media.strip_riff(data, aggressive)
+        if ext in _MATROSKA:
+            return matroska.clean_matroska(data, aggressive)
+        if ext in _OGG:
+            return ogg.clean_ogg(data, aggressive)
         raise ValueError(f"unsupported media extension: {ext}")

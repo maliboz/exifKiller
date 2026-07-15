@@ -6,14 +6,14 @@ import re
 from typing import Iterable, Mapping
 
 from .constants import FILESYSTEM_FIELDS, TECHNICAL_EXACT_FIELDS, TECHNICAL_PREFIX_FIELDS
-from .models import RiskFinding, RiskSeverity
+from .models import RiskCategory, RiskFinding, RiskSeverity
 
 
 def _normalize(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", value.lower())
 
 
-def _message_for(category: str, key: str) -> str:
+def _message_for(category: RiskCategory, key: str) -> str:
     if category == "identifying":
         return f"{key} may reveal a person, device, or software fingerprint."
     if category == "tracking":
@@ -25,7 +25,7 @@ def _message_for(category: str, key: str) -> str:
     return f"{key} is a technical field retained for compatibility or file integrity."
 
 
-def _severity_for(category: str) -> RiskSeverity:
+def _severity_for(category: RiskCategory) -> RiskSeverity:
     if category in {"identifying", "tracking", "embedded-content"}:
         return "high"
     if category == "filesystem":
@@ -55,7 +55,7 @@ def classify_metadata(
     return findings
 
 
-def classify_key(file_type: str, key: str, value: str) -> str:
+def classify_key(file_type: str, key: str, value: str) -> RiskCategory:
     """Classify a metadata key into the shared risk taxonomy."""
     del file_type
     normalized_key = _normalize(key)
@@ -92,6 +92,8 @@ def classify_key(file_type: str, key: str, value: str) -> str:
             "pieceinfo",
             "customproperties",
             "xmpmetadata",
+            "segmentuid",
+            "segmentfamily",
         },
     ):
         return "tracking"
@@ -144,6 +146,14 @@ def classify_key(file_type: str, key: str, value: str) -> str:
             "subject",
             "description",
             "title",
+            # Container-level encoder/muxer fingerprints and name leaks.
+            "muxingapp",
+            "writingapp",
+            "vendor",
+            "encoder",
+            "encodedby",
+            "trackname",
+            "filename",
         },
     ):
         return "identifying"
