@@ -75,3 +75,12 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 warn_return_any = true
 strict_equality = true
+
+# pikepdf's stubs model every value inside a PDF as a single `Object` type, so
+# mypy cannot tell that `pdf.pages` is iterable or that a resolved dictionary
+# entry is callable. Both are correct at runtime and are covered by the test
+# suite. The exemption is scoped to the two modules that touch pikepdf rather
+# than to `cleaners.*`, so the native engines stay type-checked.
+[[tool.mypy.overrides]]
+module = ["cleaners.pdf_cleaner", "cleaners.metadata_extractor"]
+disable_error_code = ["operator", "attr-defined"]

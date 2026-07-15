@@ -22,7 +22,7 @@ from __future__ import annotations
 import io
 import zipfile
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass

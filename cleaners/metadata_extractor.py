@@ -203,7 +203,7 @@ class MetadataExtractor:
                 if 'HostUrl=' in content:
                     host_url = content.split('HostUrl=')[1].split('\n')[0].strip()
                     report.metadata['Zone.HostUrl'] = host_url[:80] + ('...' if len(host_url) > 80 else '')
-                    report.warnings.append(f"Download URL tracked!")
+                    report.warnings.append("Download URL tracked!")
                 
                 if 'ReferrerUrl=' in content:
                     referrer = content.split('ReferrerUrl=')[1].split('\n')[0].strip()
@@ -564,7 +564,7 @@ class MetadataExtractor:
                 
                 if embedded_images > 0:
                     report.metadata['EmbeddedImages'] = f"{embedded_images} images"
-                    report.warnings.append(f"Embedded images may contain EXIF data!")
+                    report.warnings.append("Embedded images may contain EXIF data!")
 
                 self._extract_office_comment_metadata(zf, namelist, report, ext)
                 

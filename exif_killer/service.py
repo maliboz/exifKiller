@@ -16,7 +16,7 @@ from cleaners import (
     RawCleaner,
 )
 
-from .constants import BACKEND_NAME, RAW_EXTENSIONS, SUPPORTED_EXTENSIONS
+from .constants import RAW_EXTENSIONS, SUPPORTED_EXTENSIONS
 from .hashes import sha256_file
 from .models import (
     BatchResult,
