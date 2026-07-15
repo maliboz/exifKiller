@@ -131,11 +131,15 @@ class ImageCleaner(BaseCleaner):
                     target_mode = mode if mode in ["RGBA", "LA"] else "RGBA"
                 else:
                     target_mode = "RGB"
+
+                # Image.open returns an ImageFile; convert returns a plain
+                # Image. Keep them in separate names rather than rebinding.
+                source: Image.Image = original
                 if mode != target_mode:
-                    original = original.convert(target_mode)
+                    source = original.convert(target_mode)
 
                 new_image = Image.frombytes(
-                    target_mode, size, original.tobytes()
+                    target_mode, size, source.tobytes()
                 )
 
                 save_format = self._get_save_format(ext)

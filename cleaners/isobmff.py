@@ -20,7 +20,11 @@ report it, rather than risk corrupting a photo or video.
 
 from __future__ import annotations
 
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Tuple, Union
+
+# The box walker reads both the pristine input and the mutable buffer being
+# neutralised, so it accepts either.
+ByteSource = Union[bytes, bytearray]
 
 
 class ISOBMFFError(Exception):
@@ -72,7 +76,9 @@ def is_heif(data: bytes) -> bool:
     return False
 
 
-def iter_boxes(data: bytes, start: int, end: int) -> Iterator[Tuple[int, int, bytes, int]]:
+def iter_boxes(
+    data: ByteSource, start: int, end: int
+) -> Iterator[Tuple[int, int, bytes, int]]:
     """Yield (box_start, header_size, box_type, box_end) for boxes in a range."""
     i = start
     while i + 8 <= end:

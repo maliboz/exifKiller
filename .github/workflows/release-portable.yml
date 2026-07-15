@@ -9,13 +9,13 @@ jobs:
   windows-portable:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools
           pip install -e .[dev]
       - name: Run tests
         run: pytest -q
@@ -36,7 +36,7 @@ jobs:
         run: |
           Compress-Archive -Path dist\ExifKiller\* -DestinationPath dist\ExifKiller-windows-x64.zip -Force
           (Get-FileHash dist\ExifKiller-windows-x64.zip -Algorithm SHA256).Hash + "  ExifKiller-windows-x64.zip" | Set-Content dist\sha256sums.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: exif-killer-windows-x64
           path: |

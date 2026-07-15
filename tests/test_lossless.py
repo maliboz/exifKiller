@@ -49,6 +49,11 @@ def _jpeg_scan_bytes(data: bytes) -> bytes:
     return data[start : end + 2]
 
 
+def _pixels(image: Image.Image) -> list[object]:
+    reader = getattr(image, "get_flattened_data", image.getdata)
+    return list(reader())
+
+
 def test_strip_jpeg_is_lossless_and_removes_exif() -> None:
     exif = Image.Exif()
     exif[315] = "Secret Author"
@@ -65,7 +70,7 @@ def test_strip_jpeg_is_lossless_and_removes_exif() -> None:
     assert len(before.getexif()) == 3
     assert len(after.getexif()) == 0
     # Pixels and the compressed scan data are byte-identical -> truly lossless.
-    assert list(before.getdata()) == list(after.getdata())
+    assert _pixels(before) == _pixels(after)
     assert _jpeg_scan_bytes(original) == _jpeg_scan_bytes(cleaned)
     assert len(cleaned) < len(original)
 
@@ -95,7 +100,7 @@ def test_strip_png_removes_text_chunks_losslessly() -> None:
     after = Image.open(BytesIO(cleaned))
     assert before.info.get("Author") == "Secret"
     assert after.info.get("Author") is None
-    assert list(before.getdata()) == list(after.getdata())
+    assert _pixels(before) == _pixels(after)
 
 
 def test_strip_webp_removes_exif() -> None:

@@ -354,6 +354,10 @@ def test_raw_pixels_verified_by_pillow() -> None:
     """Build a real TIFF with Pillow, clean it, and re-read it with Pillow."""
     from PIL import Image, TiffImagePlugin
 
+    def pixels(img):
+        reader = getattr(img, "get_flattened_data", img.getdata)
+        return list(reader())
+
     with workspace_tempdir() as tmp:
         src = tmp / "shot.tiff"
         image = Image.new("RGB", (32, 24))
@@ -384,8 +388,7 @@ def test_raw_pixels_verified_by_pillow() -> None:
         # Pillow (third-party) must still decode it, with identical pixels.
         with Image.open(out) as reopened:
             assert reopened.size == (32, 24)
-            assert list(reopened.convert("RGB").getdata()) == \
-                list(image.getdata())
+            assert pixels(reopened.convert("RGB")) == pixels(image)
             assert 315 not in reopened.tag_v2
             assert 305 not in reopened.tag_v2
             assert 270 not in reopened.tag_v2
