@@ -32,7 +32,7 @@ against a real camera file - see the README's known limitations.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 _SIGNATURE = b"HEAPCCDR"
 # dcraw's sanity guard: a real CIFF directory never holds this many records.

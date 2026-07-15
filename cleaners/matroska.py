@@ -26,7 +26,7 @@ reader is sent chasing a removed index target.
 
 from __future__ import annotations
 
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 
 class MatroskaError(Exception):

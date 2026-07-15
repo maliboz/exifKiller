@@ -358,21 +358,21 @@ class TimestampCleaner:
             
             # Check if Zone.Identifier exists
             if self._ads_exists(file_path, "Zone.Identifier"):
-                self._log(f"[!] Zone.Identifier detected")
+                self._log("[!] Zone.Identifier detected")
                 
                 # Try to read and log the content
                 try:
                     with open(ads_path, 'r') as f:
                         content = f.read()
                         if 'HostUrl' in content:
-                            self._log(f"[!] Download source info found!")
+                            self._log("[!] Download source info found!")
                 except Exception:
                     pass
                 
                 # Delete the ADS - try Python first
                 try:
                     os.remove(ads_path)
-                    self._log(f"[OK] Zone.Identifier removed")
+                    self._log("[OK] Zone.Identifier removed")
                     return True
                 except Exception:
                     pass
@@ -381,13 +381,13 @@ class TimestampCleaner:
                 if self._api_ready:
                     result = self.kernel32.DeleteFileW(ads_path)
                     if result or not self._ads_exists(file_path, "Zone.Identifier"):
-                        self._log(f"[OK] Zone.Identifier removed")
+                        self._log("[OK] Zone.Identifier removed")
                         return True
                 
-                self._log(f"[!] Could not remove Zone.Identifier")
+                self._log("[!] Could not remove Zone.Identifier")
                 return False
             else:
-                self._log(f"[*] Zone.Identifier not found (clean)")
+                self._log("[*] Zone.Identifier not found (clean)")
                 return True
                 
         except Exception as e:
@@ -449,7 +449,7 @@ class TimestampCleaner:
     def full_clean(self, file_path: str, 
                    reset_date: Optional[datetime] = None) -> Tuple[bool, bool]:
         """Perform full timestamp and ADS cleaning."""
-        self._log(f"[>] Dosya sistemi temizliği başlıyor...")
+        self._log("[>] Dosya sistemi temizliği başlıyor...")
         
         timestamps_ok = self.reset_timestamps(file_path, reset_date)
         ads_ok = self.remove_zone_identifier(file_path)
