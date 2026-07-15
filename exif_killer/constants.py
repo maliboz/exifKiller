@@ -42,15 +42,45 @@ MEDIA_EXTENSIONS: Final[tuple[str, ...]] = (
     ".spx",
 )
 
+# TIFF-based camera RAW, cleaned by the native TIFF engine. Metadata tags are
+# removed in place so sensor data and byte offsets never move.
+RAW_EXTENSIONS: Final[tuple[str, ...]] = (
+    ".cr2",
+    ".nef",
+    ".nrw",
+    ".arw",
+    ".sr2",
+    ".srf",
+    ".dng",
+    ".orf",
+    ".rw2",
+    ".pef",
+    ".srw",
+    ".3fr",
+    ".mef",
+    ".mos",
+    ".erf",
+    ".dcr",
+    ".kdc",
+)
+
 DOCUMENT_EXTENSIONS: Final[tuple[str, ...]] = (
     ".pdf",
     ".docx",
     ".xlsx",
     ".pptx",
+    ".odt",
+    ".ods",
+    ".odp",
+    ".odg",
+    ".odf",
+    ".ott",
+    ".ots",
+    ".otp",
 )
 
 SUPPORTED_EXTENSIONS: Final[tuple[str, ...]] = (
-    IMAGE_EXTENSIONS + MEDIA_EXTENSIONS + DOCUMENT_EXTENSIONS
+    IMAGE_EXTENSIONS + MEDIA_EXTENSIONS + RAW_EXTENSIONS + DOCUMENT_EXTENSIONS
 )
 
 BLOCKING_RISK_CATEGORIES: Final[frozenset[str]] = frozenset(

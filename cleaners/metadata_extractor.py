@@ -134,6 +134,13 @@ class MetadataExtractor:
             report = self._extract_pdf(file_path)
         elif ext in ['.docx', '.xlsx', '.pptx']:
             report = self._extract_office(file_path)
+        elif ext in ['.odt', '.ods', '.odp', '.odg', '.odf', '.ott', '.ots',
+                     '.otp']:
+            report = self._extract_odf(file_path)
+        elif ext in ['.cr2', '.nef', '.nrw', '.arw', '.sr2', '.srf', '.dng',
+                     '.orf', '.rw2', '.pef', '.srw', '.3fr', '.mef', '.mos',
+                     '.erf', '.dcr', '.kdc']:
+            report = self._extract_raw(file_path)
         elif ext in ['.mp4', '.mov', '.m4v', '.m4a', '.heic', '.heif', '.avif',
                      '.mp3', '.flac', '.wav', '.avi', '.mkv', '.webm',
                      '.ogg', '.oga', '.ogv', '.opus', '.spx']:
@@ -643,6 +650,52 @@ class MetadataExtractor:
         except Exception as exc:
             report.warnings.append(f"SVG extraction error: {exc}")
 
+        return report
+
+    def _extract_odf(self, file_path: str) -> MetadataReport:
+        """Extract metadata from an OpenDocument package, natively."""
+        report = MetadataReport(file_path=file_path, file_type="opendocument")
+        try:
+            from .odf_cleaner import describe_odf
+
+            for key, value in describe_odf(file_path).items():
+                report.metadata[key] = value
+                report.raw_fields.append(key)
+                if key.endswith('Thumbnail'):
+                    report.warnings.append(
+                        "Preview thumbnail detected - renders document content!"
+                    )
+                elif key.endswith('Annotations') or key.endswith('TrackedChanges'):
+                    report.warnings.append(f"{key} may carry author identities")
+        except Exception as exc:
+            report.warnings.append(f"OpenDocument extraction error: {exc}")
+        return report
+
+    def _extract_raw(self, file_path: str) -> MetadataReport:
+        """Extract metadata from a TIFF-based camera RAW file, natively."""
+        report = MetadataReport(file_path=file_path, file_type="raw")
+        try:
+            with open(file_path, 'rb') as handle:
+                data = handle.read()
+
+            from . import tiff_raw
+
+            for key, value in tiff_raw.describe_tiff(data).items():
+                report.metadata[key] = value
+                report.raw_fields.append(key)
+
+            if 'RAW.GPS' in report.metadata:
+                report.warnings.append("GPS coordinates detected in RAW file!")
+            if 'RAW.MakerNote' in report.metadata:
+                report.warnings.append(
+                    "MakerNote detected - often holds serial number and shutter count"
+                )
+            if 'RAW.EmbeddedPreview' in report.metadata:
+                report.warnings.append(
+                    "Embedded preview detected - carries its own EXIF"
+                )
+        except Exception as exc:
+            report.warnings.append(f"RAW extraction error: {exc}")
         return report
 
     def _extract_media(self, file_path: str, ext: str) -> MetadataReport:
