@@ -139,8 +139,8 @@ class MetadataExtractor:
             report = self._extract_odf(file_path)
         elif ext in ['.cr2', '.nef', '.nrw', '.arw', '.sr2', '.srf', '.dng',
                      '.orf', '.rw2', '.pef', '.srw', '.3fr', '.mef', '.mos',
-                     '.erf', '.dcr', '.kdc']:
-            report = self._extract_raw(file_path)
+                     '.erf', '.dcr', '.kdc', '.crw']:
+            report = self._extract_raw(file_path, ext)
         elif ext in ['.mp4', '.mov', '.m4v', '.m4a', '.heic', '.heif', '.avif',
                      '.mp3', '.flac', '.wav', '.avi', '.mkv', '.webm',
                      '.ogg', '.oga', '.ogv', '.opus', '.spx']:
@@ -671,16 +671,21 @@ class MetadataExtractor:
             report.warnings.append(f"OpenDocument extraction error: {exc}")
         return report
 
-    def _extract_raw(self, file_path: str) -> MetadataReport:
-        """Extract metadata from a TIFF-based camera RAW file, natively."""
+    def _extract_raw(self, file_path: str, ext: str) -> MetadataReport:
+        """Extract metadata from a camera RAW file, natively."""
         report = MetadataReport(file_path=file_path, file_type="raw")
         try:
             with open(file_path, 'rb') as handle:
                 data = handle.read()
 
-            from . import tiff_raw
+            if ext == '.crw':
+                from . import ciff
+                found = ciff.describe_crw(data)
+            else:
+                from . import tiff_raw
+                found = tiff_raw.describe_tiff(data)
 
-            for key, value in tiff_raw.describe_tiff(data).items():
+            for key, value in found.items():
                 report.metadata[key] = value
                 report.raw_fields.append(key)
 
@@ -690,10 +695,14 @@ class MetadataExtractor:
                 report.warnings.append(
                     "MakerNote detected - often holds serial number and shutter count"
                 )
-            if 'RAW.EmbeddedPreview' in report.metadata:
+            if 'RAW.PreviewEXIF' in report.metadata:
                 report.warnings.append(
-                    "Embedded preview detected - carries its own EXIF"
+                    "Embedded preview carries its own EXIF"
                 )
+            if 'CRW.SerialNumber' in report.metadata:
+                report.warnings.append("Camera serial number detected!")
+            if 'CRW.OwnerName' in report.metadata:
+                report.warnings.append("Camera owner name detected!")
         except Exception as exc:
             report.warnings.append(f"RAW extraction error: {exc}")
         return report

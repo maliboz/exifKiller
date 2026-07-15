@@ -10,13 +10,16 @@ from __future__ import annotations
 import os
 from typing import Callable, List, Optional
 
-from . import tiff_raw
+from . import ciff, tiff_raw
 from .base import BaseCleaner
+
+# Canon CRW is CIFF, not TIFF, and has its own engine.
+_CIFF_EXTENSIONS = {".crw"}
 
 # TIFF-based RAW dialects. CR3 (Canon's ISOBMFF-based successor), RAF (Fuji),
 # and X3F (Sigma) are deliberately absent: they are not TIFF containers and
 # would need their own engines.
-_RAW_EXTENSIONS = {
+_TIFF_EXTENSIONS = {
     ".cr2",   # Canon
     ".nef", ".nrw",  # Nikon
     ".arw", ".sr2", ".srf",  # Sony
@@ -32,9 +35,11 @@ _RAW_EXTENSIONS = {
     ".dcr", ".kdc",  # Kodak
 }
 
+_RAW_EXTENSIONS = _TIFF_EXTENSIONS | _CIFF_EXTENSIONS
+
 
 class RawCleaner(BaseCleaner):
-    """Cleaner for TIFF-based camera RAW formats."""
+    """Cleaner for camera RAW formats (TIFF-based, plus Canon's CIFF-based CRW)."""
 
     SUPPORTED_EXTENSIONS = sorted(_RAW_EXTENSIONS)
 
@@ -45,6 +50,7 @@ class RawCleaner(BaseCleaner):
         return self.SUPPORTED_EXTENSIONS
 
     def clean(self, file_path: str) -> str:
+        ext = os.path.splitext(file_path)[1].lower()
         aggressive = self._cleaning_profile == "aggressive"
         output_path = self.generate_output_path(file_path)
 
@@ -52,12 +58,13 @@ class RawCleaner(BaseCleaner):
             data = handle.read()
 
         self.log(f"[>] Cleaning RAW (native): {os.path.basename(file_path)}")
-        cleaned, removed = tiff_raw.clean_tiff(data, aggressive)
+        if ext in _CIFF_EXTENSIONS:
+            cleaned, removed = ciff.clean_crw(data, aggressive)
+        else:
+            cleaned, removed = tiff_raw.clean_tiff(data, aggressive)
 
         if len(cleaned) != len(data):  # pragma: no cover - defensive
-            raise tiff_raw.TiffError(
-                "internal error: RAW cleaning changed the file size"
-            )
+            raise ValueError("internal error: RAW cleaning changed the file size")
 
         with open(output_path, "wb") as handle:
             handle.write(cleaned)

@@ -272,6 +272,65 @@ def _raw_sensor_identical(before, after, original: bytes, cleaned: bytes) -> Che
 
 
 # --------------------------------------------------------------------------- #
+# Canon CRW (CIFF)
+# --------------------------------------------------------------------------- #
+
+
+def check_crw(original: bytes, cleaned: bytes) -> List[Check]:
+    from . import ciff
+
+    checks = [_not_empty(cleaned), _same_size(original, cleaned)]
+
+    try:
+        before = ciff.CIFFFile(original)
+    except ciff.CIFFError as exc:
+        checks.append(_ok("parses", f"original not parseable ({exc}); skipped"))
+        return checks
+
+    try:
+        after = ciff.CIFFFile(cleaned)
+    except ciff.CIFFError as exc:
+        checks.append(_fail("parses", f"cleaned file no longer parses: {exc}"))
+        return checks
+    checks.append(_ok("parses", f"{len(after.directories)} directories"))
+
+    checks.append(_crw_raw_data_identical(before, after, original, cleaned))
+    return checks
+
+
+def _crw_raw_data_identical(before, after, original: bytes,
+                            cleaned: bytes) -> Check:
+    """The sensor data (tag 0x2005) must survive byte-for-byte."""
+    from . import ciff
+
+    total = 0
+    for directory in before.directories:
+        for entry in directory.entries:
+            if entry.tag != ciff.TAG_RAW_DATA or entry.inline:
+                continue
+            start, length = entry.absolute_offset, entry.length
+            if start + length > len(original):
+                continue
+            if original[start : start + length] != cleaned[start : start + length]:
+                return Check("sensor-data", False,
+                             f"raw data at offset {start} changed - RAW DAMAGED")
+            total += length
+
+    if not total:
+        return Check("sensor-data", True, "no RawData record; skipped")
+
+    # The record must still be reachable after cleaning.
+    survives = any(
+        entry.tag == ciff.TAG_RAW_DATA
+        for directory in after.directories
+        for entry in directory.entries
+    )
+    if not survives:
+        return Check("sensor-data", False, "the RawData record was dropped")
+    return Check("sensor-data", True, f"{total} bytes identical")
+
+
+# --------------------------------------------------------------------------- #
 # ISOBMFF (mp4/mov/heic/avif)
 # --------------------------------------------------------------------------- #
 
@@ -674,6 +733,8 @@ def check_integrity(ext: str, original: bytes, cleaned: bytes) -> List[Check]:
         return check_image(original, cleaned)
     if ext == ".svg":
         return check_svg(original, cleaned)
+    if ext == ".crw":
+        return check_crw(original, cleaned)
     if ext in _RAW:
         return check_tiff_raw(original, cleaned)
     if ext in _ISOBMFF:
