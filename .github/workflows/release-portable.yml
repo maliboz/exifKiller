@@ -36,7 +36,7 @@ jobs:
         run: |
           Compress-Archive -Path dist\ExifKiller\* -DestinationPath dist\ExifKiller-windows-x64.zip -Force
           (Get-FileHash dist\ExifKiller-windows-x64.zip -Algorithm SHA256).Hash + "  ExifKiller-windows-x64.zip" | Set-Content dist\sha256sums.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: exif-killer-windows-x64
           path: |
