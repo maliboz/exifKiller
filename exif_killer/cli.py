@@ -79,6 +79,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="Profile label to embed in the report. Default: safe.",
     )
 
+    selftest_parser = subparsers.add_parser(
+        "selftest",
+        help="Clean a folder of real files into a temp dir and check nothing broke.",
+        description=(
+            "Point this at a folder of real camera/phone/office files. Each one is "
+            "cleaned into a temporary directory (your originals are never touched) "
+            "and then checked: does it still parse, and is its media payload "
+            "byte-identical? Also reports which supported formats have no sample yet."
+        ),
+    )
+    selftest_parser.add_argument(
+        "paths",
+        nargs="*",
+        help="Folders or files of real samples. Omit with --wanted.",
+    )
+    selftest_parser.add_argument(
+        "--profile",
+        choices=("safe", "aggressive"),
+        default="safe",
+        help="Cleaning profile to exercise. Default: safe.",
+    )
+    selftest_parser.add_argument(
+        "--recursive",
+        action="store_true",
+        default=True,
+        help="Recurse into subfolders. Default: on.",
+    )
+    selftest_parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format. Default: text.",
+    )
+    selftest_parser.add_argument("--report", help="Optional file to write the report to.")
+    selftest_parser.add_argument(
+        "--wanted",
+        action="store_true",
+        help="Just print which real files are worth collecting, and exit.",
+    )
+
     return parser
 
 
@@ -96,6 +136,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error(str(exc))
     elif getattr(args, "timestamp_value", None):
         parser.error("--timestamp-date is only valid with --timestamp custom")
+
+    if args.command == "selftest":
+        return _run_selftest(args, parser)
 
     if args.command == "scan":
         batch = _run_scan(args)
@@ -158,6 +201,41 @@ def _run_verify(args: argparse.Namespace) -> BatchResult:
         results=[result],
         backend=BACKEND_NAME,
     )
+
+
+def _run_selftest(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Run the corpus self-test; it has its own report shape and exit codes."""
+    from .selftest import render_selftest, render_wishlist, run_selftest
+
+    if args.wanted:
+        print(render_wishlist())
+        return 0
+
+    if not args.paths:
+        parser.error("selftest needs a folder of real files (or use --wanted)")
+
+    report = run_selftest(
+        args.paths,
+        profile=args.profile,
+        logger=_stderr_logger,
+        recursive=args.recursive,
+    )
+
+    if args.format == "json":
+        import json
+
+        rendered = json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
+    else:
+        rendered = render_selftest(report)
+
+    if args.report:
+        Path(args.report).write_text(rendered, encoding="utf-8")
+        print(render_selftest(report).rstrip())
+        print(f"\nReport written to {Path(args.report).resolve()}")
+    else:
+        print(rendered.rstrip())
+
+    return report.exit_code()
 
 
 def _add_common_scan_args(parser: argparse.ArgumentParser) -> None:

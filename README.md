@@ -103,6 +103,10 @@ must see the tags before cleaning and still parse a valid stream afterwards).
 mutagen is a dev-only extra — the tool itself never imports it, and those tests
 skip when it is absent.
 
+The same checks are exposed as `exif-killer selftest`, so the engines can be
+proven against real files rather than only against fixtures someone wrote by
+hand. See [Testing Against Your Own Files](#testing-against-your-own-files).
+
 Exif Killer classifies findings into five categories:
 
 - `identifying`
@@ -148,6 +152,37 @@ exif-killer clean photo.jpg --timestamp keep
 - `epoch`: reset to `1970-01-01`
 - `random`: generate a plausible random date per file (created ≤ modified ≤ accessed, within a normal usage window) so the file does not stand out
 - `custom`: use `--timestamp-date` (accepts `YYYY-MM-DD` or ISO 8601)
+
+### Testing Against Your Own Files
+
+Verification answers "is the metadata gone?". `selftest` answers the harder
+question: **"did the tool break my file?"**
+
+```bash
+exif-killer selftest --wanted              # what real files are worth collecting
+exif-killer selftest ~/samples --profile aggressive
+exif-killer selftest ~/samples --format json --report selftest.json
+```
+
+Every file is cleaned into a temporary directory — **your originals are never
+modified** — and then checked with format-aware assertions: the container must
+still parse, and the irreplaceable bytes (the JPEG scan, `mdat`, the Matroska
+clusters, the Ogg audio pages, the RAW sensor strips) must be identical. For
+RAW and Matroska, the file size must not have changed at all.
+
+Each file gets one of three verdicts:
+
+- `pass` — cleaned, intact, nothing blocking left.
+- `residual` — intact, but metadata the profile deliberately keeps is still
+  there (safe leaves RAW `Make`/`Model`, ODF annotations). Not a failure.
+- `damaged` — an integrity check failed. The tool corrupted the file, and no
+  amount of metadata removal excuses that.
+
+The report also lists which supported formats have no sample yet, so it tells
+you what to go and find next.
+
+Exit codes: `0` all passed, `1` something was damaged, `2` residual metadata
+remains, `3` no supported files found.
 
 ### Stable Exit Codes
 
@@ -212,8 +247,9 @@ mypy
 - Recursive archive inspection is not in the alpha scope
 - Creation-time rewriting is Windows-only; modification/access times are set on all platforms
 - The container engines are tested against hand-built fixtures and cross-checked
-  with third-party parsers (Pillow for TIFF/RAW, mutagen for Ogg), but have not
-  yet been run against a corpus of real camera output
+  with third-party parsers (Pillow for TIFF/RAW, mutagen for Ogg). Run
+  `exif-killer selftest` against your own real files to check the formats you
+  actually care about; `selftest --wanted` lists what is worth collecting
 
 ## License
 
