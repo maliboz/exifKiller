@@ -17,5 +17,17 @@ pytest-cache-files-*/
 _review_tmp_*/
 exif-killer-tests-*/
 exif-killer-lossless-*/
+exif-killer-media-*/
+exif-killer-containers-*/
+exif-killer-rawodf-*/
+exif-killer-selftest-*/
 *_Cleaned.*
 *.egg-info/
+
+# Real-file corpus for `exif-killer selftest`.
+# These are personal photos, videos and documents - exactly the kind of file
+# this tool exists to protect. They must never be committed, and least of all
+# to a public repository.
+exif_test/
+corpus/
+samples/

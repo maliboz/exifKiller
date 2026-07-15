@@ -181,6 +181,10 @@ Each file gets one of three verdicts:
 The report also lists which supported formats have no sample yet, so it tells
 you what to go and find next.
 
+Keep your corpus out of version control — those are exactly the personal files
+this tool exists to protect. `exif_test/`, `corpus/` and `samples/` are already
+in `.gitignore`.
+
 Exit codes: `0` all passed, `1` something was damaged, `2` residual metadata
 remains, `3` no supported files found.
 
@@ -244,6 +248,12 @@ mypy
   internal offset tables would otherwise break
 - Ogg FLAC (FLAC inside an Ogg container) is detected but not stripped; native
   `.flac` files are fully handled
+- The PDF spec effectively requires a trailer `/ID`, and pikepdf writes one back
+  on every save. Ours is generated deterministically from the file's own
+  content, so it carries no machine or time entropy — but it is still reported
+  as a finding rather than quietly excused
+- A RAW's embedded preview is kept: it renders the same photo the file already
+  contains. Its own EXIF is stripped under `aggressive`
 - Recursive archive inspection is not in the alpha scope
 - Creation-time rewriting is Windows-only; modification/access times are set on all platforms
 - The container engines are tested against hand-built fixtures and cross-checked

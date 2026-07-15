@@ -98,14 +98,48 @@ def _not_empty(cleaned: bytes) -> Check:
 
 
 def _jpeg_scan_bytes(data: bytes) -> Optional[bytes]:
-    """The entropy-coded image data: everything from SOS to EOI."""
-    i = data.find(b"\xff\xda")
-    if i == -1:
+    """The entropy-coded image data: everything from SOS to EOI.
+
+    The SOS marker must be found by walking the segment chain, not by searching
+    for the bytes: a JPEG's EXIF block is arbitrary binary data and routinely
+    contains 0xFFDA by coincidence. Searching finds that first, and since
+    cleaning removes the EXIF, the two files then get compared from different
+    offsets and a lossless strip looks like a re-encode.
+    """
+    if data[:2] != b"\xff\xd8":
         return None
-    seg_len = int.from_bytes(data[i + 2 : i + 4], "big")
-    start = i + 2 + seg_len
-    end = data.find(b"\xff\xd9", start)
-    return data[start:end] if end != -1 else data[start:]
+
+    i = 2
+    n = len(data)
+    while i < n:
+        if data[i] != 0xFF:
+            return None
+        while i < n and data[i] == 0xFF:  # skip fill bytes
+            i += 1
+        if i >= n:
+            return None
+        marker = data[i]
+        i += 1
+
+        if marker == 0xD9:  # EOI before any scan
+            return b""
+        if marker == 0x01 or 0xD0 <= marker <= 0xD7:  # standalone markers
+            continue
+
+        if i + 2 > n:
+            return None
+        seg_len = int.from_bytes(data[i : i + 2], "big")
+        if seg_len < 2:
+            return None
+
+        if marker == 0xDA:  # SOS: the scan starts after this segment
+            start = i + seg_len
+            end = data.find(b"\xff\xd9", start)
+            return data[start:end] if end != -1 else data[start:]
+
+        i += seg_len
+
+    return None
 
 
 def check_jpeg(original: bytes, cleaned: bytes) -> List[Check]:
@@ -455,14 +489,25 @@ def check_riff(original: bytes, cleaned: bytes) -> List[Check]:
         checks.append(_fail("structure", "missing RIFF header"))
         return checks
 
+    # Real-world AVIs often ship with a RIFF size field that already disagrees
+    # with the file length (trailing padding, truncated recordings). Only blame
+    # the cleaner if the original was consistent and the output is not.
     declared = int.from_bytes(cleaned[4:8], "little")
     actual = len(cleaned) - 8
-    if declared != actual:
+    was_consistent = int.from_bytes(original[4:8], "little") == len(original) - 8
+    if declared == actual:
+        checks.append(_ok("structure", "RIFF size field consistent"))
+    elif not was_consistent:
         checks.append(
-            _fail("structure", f"RIFF size field says {declared}, file has {actual}")
+            _ok("structure",
+                f"size field says {declared}, file has {actual} - but the input "
+                "was already like this")
         )
     else:
-        checks.append(_ok("structure", "RIFF size field consistent"))
+        checks.append(
+            _fail("structure",
+                  f"RIFF size field says {declared}, file has {actual}")
+        )
 
     before_data = _riff_chunk(original, b"data") or _riff_chunk(original, b"movi")
     after_data = _riff_chunk(cleaned, b"data") or _riff_chunk(cleaned, b"movi")

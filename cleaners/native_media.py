@@ -226,7 +226,22 @@ def strip_riff(data: bytes, aggressive: bool = False) -> Tuple[bytes, List[str]]
     removed: List[str] = []
     body = bytearray()
     i = 12
-    n = len(data)
+
+    # Chunk walking must stop at the end the RIFF header declares, not at EOF.
+    # Real recordings routinely carry bytes past that point (padding, a
+    # truncated tail); reading them as chunks yields garbage ids and absurd
+    # lengths, and would splice that garbage into the rebuilt body. Anything
+    # beyond the declared end is preserved verbatim instead.
+    declared_end = 8 + int.from_bytes(data[4:8], "little")
+    n = min(declared_end, len(data)) if declared_end > 12 else len(data)
+    trailing = data[n:] if n < len(data) else b""
+
+    # Bytes past the declared end are unreferenced: no player reads them, which
+    # is precisely what makes them a place to hide data. Aggressive drops them,
+    # mirroring how the JPEG path discards anything after EOI.
+    if trailing and aggressive:
+        removed.append("TrailingData")
+        trailing = b""
 
     while i + 8 <= n:
         cid = data[i : i + 4]
@@ -263,6 +278,7 @@ def strip_riff(data: bytes, aggressive: bool = False) -> Tuple[bytes, List[str]]
     out += (len(body) + 4).to_bytes(4, "little")
     out += form
     out += body
+    out += trailing
     return bytes(out), removed
 
 
@@ -271,10 +287,13 @@ def describe_riff(data: bytes) -> Dict[str, str]:
     if data[:4] != b"RIFF":
         return found
     i = 12
-    n = len(data)
+    declared_end = 8 + int.from_bytes(data[4:8], "little")
+    n = min(declared_end, len(data)) if declared_end > 12 else len(data)
     while i + 8 <= n:
         cid = data[i : i + 4]
         size = int.from_bytes(data[i + 4 : i + 8], "little")
+        if size <= 0:
+            break
         if cid == b"LIST" and data[i + 8 : i + 12] == b"INFO":
             found["RIFF.INFO"] = "PRESENT"
         elif cid in (b"ID3 ", b"id3 "):

@@ -102,6 +102,11 @@ TECHNICAL_EXACT_FIELDS: Final[frozenset[str]] = frozenset(
         "ICC_Profile",
         "MarkInfo",
         "NamedDestinations",
+        # A RAW's embedded preview renders the same photo it is stored in, so it
+        # discloses nothing extra. Its own metadata is reported as
+        # RAW.PreviewEXIF, which is blocking.
+        "RAW.EmbeddedPreview",
+        "ODF.EmbeddedImages",
     }
 )
 

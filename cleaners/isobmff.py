@@ -304,16 +304,38 @@ def _describe_udta(data: bytes, start: int, end: int, found: dict[str, str]) -> 
 
 
 def describe_heif_metadata(data: bytes) -> dict[str, str]:
-    """Return a map describing EXIF/XMP items present in a HEIF image."""
+    """Return a map describing EXIF/XMP items present in a HEIF image.
+
+    Cleaning zeroes an item's payload but leaves its `infe` declaration in the
+    `meta` box, because removing the declaration would shift every following
+    byte and invalidate `iloc`. So the declaration alone proves nothing: an item
+    is only reported when its payload still holds data.
+    """
     found: dict[str, str] = {}
     meta_box = _find_top_level_box(data, b"meta")
     if meta_box is None:
         return found
     meta_start, meta_header, meta_end = meta_box
     inner_start = meta_start + meta_header + 4
-    for item_id, itype in _parse_iinf(data, inner_start, meta_end).items():
-        if itype in (b"Exif", b"exif"):
-            found["EXIF"] = "PRESENT"
-        elif itype == b"mime":
-            found["XMP"] = "PRESENT"
+
+    item_types = _parse_iinf(data, inner_start, meta_end)
+    extents = _parse_iloc(data, inner_start, meta_end)
+
+    for item_id, itype in item_types.items():
+        if itype not in (b"Exif", b"exif", b"mime"):
+            continue
+        if not _item_has_content(data, extents.get(item_id, [])):
+            continue
+        label = "EXIF" if itype in (b"Exif", b"exif") else "XMP"
+        found[label] = "PRESENT"
     return found
+
+
+def _item_has_content(data: bytes, extents: list[tuple[int, int]]) -> bool:
+    """True when any of an item's extents still holds non-zero bytes."""
+    for offset, length in extents:
+        if offset <= 0 or length <= 0 or offset + length > len(data):
+            continue
+        if any(data[offset : offset + length]):
+            return True
+    return False

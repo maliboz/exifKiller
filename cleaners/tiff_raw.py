@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Set, Tuple
 
-from .lossless_image import LosslessStripError, strip_jpeg
+from .lossless_image import LosslessStripError, _jpeg_keep_segment, strip_jpeg
 
 
 class TiffError(Exception):
@@ -138,7 +138,11 @@ class TiffFile:
             return True
         if order == b"MM":
             return False
-        raise TiffError("not a TIFF (bad byte-order mark)")
+        raise TiffError(
+            f"not a TIFF container: expected the file to start with 'II' or "
+            f"'MM' but found {order!r}. Refusing to guess at the layout - the "
+            f"file is probably corrupt, truncated, or has the wrong extension"
+        )
 
     def _u16(self, pos: int) -> int:
         return int.from_bytes(self.data[pos : pos + 2],
@@ -499,6 +503,58 @@ def _is_preview_ifd(tiff: TiffFile, ifd: IFD) -> bool:
     return photometric in _VIEWABLE_PHOTOMETRIC
 
 
+def _jpeg_carries_metadata(blob: bytes) -> bool:
+    """Header-only scan: does this JPEG hold any metadata segment?
+
+    Reads segment headers and stops at the scan, so it stays cheap even on a
+    multi-megabyte preview.
+    """
+    if blob[:2] != b"\xff\xd8":
+        return False
+    i = 2
+    n = len(blob)
+    while i < n:
+        if blob[i] != 0xFF:
+            return False
+        while i < n and blob[i] == 0xFF:
+            i += 1
+        if i >= n:
+            return False
+        marker = blob[i]
+        i += 1
+        if marker in (0xDA, 0xD9):  # scan begins / image ends: no metadata left
+            return False
+        if marker == 0x01 or 0xD0 <= marker <= 0xD7:
+            continue
+        if i + 2 > n:
+            return False
+        seg_len = int.from_bytes(blob[i : i + 2], "big")
+        if seg_len < 2:
+            return False
+        if not _jpeg_keep_segment(marker, blob[i + 2 : i + 18], aggressive=True):
+            return True
+        i += seg_len
+    return False
+
+
+def _preview_blobs(tiff: TiffFile, ifd: IFD) -> List[bytes]:
+    """The JPEG bytes of a preview IFD, if it stores exactly one."""
+    blobs: List[bytes] = []
+    for off_tag, cnt_tag in ((TAG_JPEG_IF_OFFSET, TAG_JPEG_IF_LENGTH),
+                             (TAG_STRIP_OFFSETS, TAG_STRIP_BYTE_COUNTS)):
+        offsets_entry, counts_entry = ifd.get(off_tag), ifd.get(cnt_tag)
+        if offsets_entry is None or counts_entry is None:
+            continue
+        offsets = tiff.value_ints(offsets_entry)
+        counts = tiff.value_ints(counts_entry)
+        if len(offsets) != 1 or len(counts) != 1:
+            continue
+        start, length = offsets[0], counts[0]
+        if start + length <= len(tiff.data) and length > 3:
+            blobs.append(tiff.data[start : start + length])
+    return blobs
+
+
 def _strip_previews(tiff: TiffFile, out: bytearray) -> List[str]:
     """Strip EXIF out of embedded preview JPEGs, in place.
 
@@ -625,8 +681,18 @@ def describe_tiff(data: bytes) -> Dict[str, str]:
             elif entry.tag == TAG_GPS_IFD:
                 found["RAW.GPS"] = "PRESENT"
 
-    previews = sum(1 for ifd in tiff.ifds if _is_preview_ifd(tiff, ifd))
+    # An embedded preview is a rendering of the same photo, so its existence is
+    # informational, not a leak. What matters is whether the preview JPEG still
+    # carries metadata of its own - report that separately, and only when true.
+    previews = [ifd for ifd in tiff.ifds if _is_preview_ifd(tiff, ifd)]
     if previews:
-        found["RAW.EmbeddedPreview"] = f"{previews} previews"
+        found["RAW.EmbeddedPreview"] = f"{len(previews)} previews"
+        dirty = any(
+            _jpeg_carries_metadata(blob)
+            for ifd in previews
+            for blob in _preview_blobs(tiff, ifd)
+        )
+        if dirty:
+            found["RAW.PreviewEXIF"] = "PRESENT"
 
     return found

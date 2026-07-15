@@ -198,6 +198,165 @@ def test_integrity_catches_empty_output() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Regressions found by running against real camera/phone files.
+# Each of these was a false alarm or a wrong report that fixtures never showed.
+# --------------------------------------------------------------------------- #
+
+
+def _jpeg_with_exif_containing_sos_bytes() -> bytes:
+    """A JPEG whose EXIF payload happens to contain the SOS marker bytes.
+
+    Real EXIF blocks are tens of KB of binary data (thumbnails, MakerNotes), so
+    0xFFDA turns up inside them by chance all the time.
+    """
+    exif_payload = b"Exif\x00\x00" + b"II*\x00" + b"\xff\xda\xff\xda" + b"PAD" * 8
+    app1 = b"\xff\xe1" + (2 + len(exif_payload)).to_bytes(2, "big") + exif_payload
+    return (
+        b"\xff\xd8"
+        + app1
+        + b"\xff\xdb" + (67).to_bytes(2, "big") + b"\x00" + b"\x01" * 64
+        + b"\xff\xda" + (8).to_bytes(2, "big") + b"\x01\x00\x00\x3f\x00\x00"
+        + b"\x12\x34\x56\x78\x9a"
+        + b"\xff\xd9"
+    )
+
+
+def test_jpeg_scan_compare_is_not_fooled_by_sos_bytes_inside_exif() -> None:
+    """Regression: searching for 0xFFDA found a false SOS inside the EXIF.
+
+    The original matched inside its metadata and the cleaned file matched at the
+    real scan, so a perfectly lossless strip was reported as a re-encode.
+    """
+    from cleaners.lossless_image import strip_jpeg
+
+    original = _jpeg_with_exif_containing_sos_bytes()
+    assert b"\xff\xda" in original[: original.find(b"\xff\xdb")]  # inside the EXIF
+
+    cleaned = strip_jpeg(original, aggressive=True)
+    assert b"Exif\x00\x00" not in cleaned
+
+    checks = check_integrity(".jpg", original, cleaned)
+    assert not _failed(checks), f"false alarm: {_failed(checks)}"
+
+
+def test_heif_report_ignores_item_declarations_with_zeroed_payloads() -> None:
+    """Regression: a real iPhone HEIC reported EXIF/XMP after being cleaned.
+
+    Cleaning zeroes the payload but must leave the infe declaration in place
+    (removing it would shift bytes and break iloc), and the report was reading
+    the declaration rather than the content.
+    """
+    from test_media import _build_heif_with_exif
+
+    data, _before, _after = _build_heif_with_exif()
+    assert isobmff.describe_heif_metadata(data) == {"EXIF": "PRESENT"}
+
+    cleaned, removed = isobmff.clean_heif(data)
+    assert "Exif" in removed
+    # The item type string survives in the meta box; the payload does not.
+    assert b"Exif" in cleaned
+    assert isobmff.describe_heif_metadata(cleaned) == {}
+
+
+def _riff_with_trailing_bytes() -> bytes:
+    from test_media import _build_wav
+
+    return _build_wav() + b"HIDDEN-PAYLOAD" + b"\x00" * 40
+
+
+def test_riff_walk_stops_at_the_declared_end() -> None:
+    """Regression: a real AVI carried bytes past the RIFF end.
+
+    Walking to EOF read them as chunks, producing garbage ids and absurd
+    lengths that would have been spliced into a rebuilt body.
+    """
+    from cleaners import native_media
+
+    data = _riff_with_trailing_bytes()
+    # describe must not choke on, or report, the trailing garbage.
+    assert native_media.describe_riff(data)["RIFF.INFO"] == "PRESENT"
+
+    cleaned, removed = native_media.strip_riff(data, aggressive=False)
+    assert "INFO" in removed
+    declared = int.from_bytes(cleaned[4:8], "little")
+    body_end = 8 + declared
+    # Safe preserves the trailing bytes, and never folds them into the body.
+    assert cleaned[body_end:] == b"HIDDEN-PAYLOAD" + b"\x00" * 40
+    assert b"\x7f" * 100 in cleaned[:body_end]
+
+
+def test_riff_aggressive_drops_data_hidden_past_the_declared_end() -> None:
+    from cleaners import native_media
+
+    data = _riff_with_trailing_bytes()
+    cleaned, removed = native_media.strip_riff(data, aggressive=True)
+
+    assert "TrailingData" in removed
+    assert b"HIDDEN-PAYLOAD" not in cleaned
+    declared = int.from_bytes(cleaned[4:8], "little")
+    assert len(cleaned) == 8 + declared  # nothing past the declared end
+
+
+def test_riff_check_does_not_blame_the_cleaner_for_a_broken_input() -> None:
+    """Regression: real AVIs ship with an already-wrong RIFF size field."""
+    from test_media import _build_wav
+
+    original = _build_wav() + b"\x00" * 376  # declared size now understates
+    assert int.from_bytes(original[4:8], "little") != len(original) - 8
+
+    checks = check_integrity(".wav", original, original)
+    assert "structure" not in _failed(checks)
+
+
+def test_raw_preview_without_metadata_is_not_reported_as_a_leak() -> None:
+    """Regression: every RAW reported EmbeddedPreview and could never be clean.
+
+    A preview renders the same photo the file already contains, so it is only
+    worth flagging when the preview JPEG carries metadata of its own.
+    """
+    from test_raw_odf import _build_tiff, _dirty_tags
+
+    clean_preview = (
+        b"\xff\xd8"
+        + b"\xff\xdb" + (67).to_bytes(2, "big") + b"\x00" + b"\x01" * 64
+        + b"\xff\xda" + (8).to_bytes(2, "big") + b"\x01\x00\x00\x3f\x00\x00"
+        + b"\xab\xcd"
+        + b"\xff\xd9"
+    )
+    data = _build_tiff(_dirty_tags(), image=clean_preview, photometric=6,
+                       compression=6)
+
+    described = tiff_raw.describe_tiff(data)
+    assert described["RAW.EmbeddedPreview"] == "1 previews"
+    assert "RAW.PreviewEXIF" not in described
+
+
+def test_raw_preview_with_metadata_is_reported() -> None:
+    from test_raw_odf import _build_tiff, _dirty_tags, _jpeg_with_exif
+
+    data = _build_tiff(_dirty_tags(), image=_jpeg_with_exif(), photometric=6,
+                       compression=6)
+
+    described = tiff_raw.describe_tiff(data)
+    assert described["RAW.PreviewEXIF"] == "PRESENT"
+
+    cleaned, removed = tiff_raw.clean_tiff(data, aggressive=True)
+    assert "PreviewEXIF" in removed
+    assert "RAW.PreviewEXIF" not in tiff_raw.describe_tiff(cleaned)
+
+
+def test_raw_refusal_message_is_actionable() -> None:
+    """A file that is not TIFF at all should say so in a way a user can act on."""
+    try:
+        tiff_raw.clean_tiff(b"\x00\x08\x07\x7e" * 8)
+    except tiff_raw.TiffError as exc:
+        message = str(exc)
+        assert "corrupt" in message or "wrong extension" in message
+    else:
+        raise AssertionError("expected TiffError")
+
+
+# --------------------------------------------------------------------------- #
 # The harness itself
 # --------------------------------------------------------------------------- #
 
