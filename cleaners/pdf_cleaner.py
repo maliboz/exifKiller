@@ -7,12 +7,54 @@ complete metadata removal that can withstand forensic analysis.
 """
 
 from typing import List, Optional, Callable
-import pikepdf
-from pikepdf import Pdf
 import os
 import tempfile
 
 from .base import BaseCleaner
+
+# pikepdf is a C extension. On Windows it fails to load whenever the Visual C++
+# runtime is missing, and a plain `import pikepdf` at module scope would then
+# take the entire application down with it - GUI included - just because one of
+# the ten supported families is unavailable. Someone cleaning holiday photos
+# should not be stopped by the PDF engine, so the failure is captured here and
+# surfaced only when a PDF is actually processed.
+try:
+    import pikepdf
+    from pikepdf import Pdf
+
+    _PIKEPDF_ERROR: Optional[BaseException] = None
+except Exception as _exc:  # ImportError, or a DLL load failure on Windows
+    pikepdf = None  # type: ignore[assignment]
+    Pdf = object  # type: ignore[misc,assignment]
+    _PIKEPDF_ERROR = _exc
+
+
+class PDFSupportUnavailable(RuntimeError):
+    """Raised when a PDF is handed to a build whose pikepdf will not load."""
+
+
+def pdf_support_available() -> bool:
+    """Whether the PDF engine can run in this environment."""
+    return _PIKEPDF_ERROR is None
+
+
+def pdf_support_error() -> str:
+    """A one-line reason why PDF support is unavailable, or an empty string."""
+    if _PIKEPDF_ERROR is None:
+        return ""
+    # pikepdf's own message is a multi-line diagnostic; keep the first line.
+    first = str(_PIKEPDF_ERROR).strip().splitlines()
+    detail = first[0] if first else _PIKEPDF_ERROR.__class__.__name__
+    return (
+        f"pikepdf could not be loaded ({detail}). PDF support is disabled; "
+        f"every other format still works. On Windows this usually means the "
+        f"Microsoft Visual C++ Redistributable (x64) is missing."
+    )
+
+
+def _require_pikepdf() -> None:
+    if pikepdf is None:
+        raise PDFSupportUnavailable(pdf_support_error())
 
 
 class PDFCleaner(BaseCleaner):
@@ -67,8 +109,9 @@ class PDFCleaner(BaseCleaner):
         Returns:
             Path to the cleaned PDF file.
         """
+        _require_pikepdf()
         self.log(f"[>] Opening PDF: {os.path.basename(file_path)}")
-        
+
         try:
             # First pass: aggressive metadata removal
             temp_path = self._first_pass_clean(file_path)

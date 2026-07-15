@@ -343,10 +343,16 @@ class MetadataExtractor:
     
     def _extract_pdf(self, file_path: str) -> MetadataReport:
         """Extract ALL metadata from PDFs including hidden streams."""
-        import pikepdf
-        
+        from .pdf_cleaner import pdf_support_available, pdf_support_error
+
         report = MetadataReport(file_path=file_path, file_type="pdf")
-        
+
+        if not pdf_support_available():
+            report.warnings.append(pdf_support_error())
+            return report
+
+        import pikepdf
+
         try:
             with pikepdf.open(file_path) as pdf:
                 # Document Info Dictionary

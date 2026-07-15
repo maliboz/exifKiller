@@ -53,6 +53,19 @@ class MetadataToolService:
         ]
         self.supported_extensions = set(SUPPORTED_EXTENSIONS)
         self._configure_cleaners()
+        self._warn_about_degraded_support()
+
+    def _warn_about_degraded_support(self) -> None:
+        """Say up front if an optional engine cannot run in this environment.
+
+        A missing C extension disables one format family, not the tool. The user
+        should hear that when the app starts rather than discovering it halfway
+        through a batch.
+        """
+        from cleaners.pdf_cleaner import pdf_support_available, pdf_support_error
+
+        if not pdf_support_available():
+            self._log(f"[!] {pdf_support_error()}")
 
     def scan_paths(
         self,
