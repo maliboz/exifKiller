@@ -35,6 +35,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "mypy>=1.10.0",
+  # Third-party Ogg/ID3 parser used ONLY as a test oracle, to cross-check our
+  # native output against an implementation we did not write. The tool never
+  # imports it; the suite skips those tests when it is absent.
+  "mutagen>=1.47.0",
   "pip-audit>=2.7.0",
   "pyinstaller>=6.10.0",
   "pytest>=8.2.0",

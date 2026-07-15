@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal, Optional, Sequence, Union
 
 from .constants import BLOCKING_RISK_CATEGORIES, BACKEND_NAME
 
@@ -181,15 +181,19 @@ class CleanResult:
         )
 
 
+AnyResult = Union[ScanResult, VerificationResult, CleanResult]
+
+
 @dataclass(slots=True)
 class BatchResult:
     """Batch wrapper used by the CLI, GUI, and report exporters."""
 
     command: str
     profile: ProfileName
-    results: list[ScanResult | VerificationResult | CleanResult] = field(
-        default_factory=list
-    )
+    # Sequence, not list: callers build a homogeneous list[ScanResult] or
+    # list[CleanResult], and list is invariant so those would not fit a
+    # list[AnyResult] parameter.
+    results: Sequence[AnyResult] = field(default_factory=list)
     unsupported_inputs: list[str] = field(default_factory=list)
     backend: str = BACKEND_NAME
 

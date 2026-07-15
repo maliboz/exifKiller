@@ -371,9 +371,12 @@ class MetadataToolService:
             return "pdf"
         if extension in {".docx", ".xlsx", ".pptx"}:
             return "office"
-        if extension in {".mp4", ".mov", ".m4v", ".mkv", ".avi", ".webm"}:
+        if extension in {".mp4", ".mov", ".m4v", ".mkv", ".avi", ".webm", ".ogv"}:
             return "video"
-        if extension in {".mp3", ".flac", ".m4a", ".wav", ".ogg", ".opus", ".aac"}:
+        if extension in {
+            ".mp3", ".flac", ".m4a", ".wav", ".ogg", ".oga", ".opus", ".spx",
+            ".aac",
+        }:
             return "audio"
         if extension in {
             ".jpg", ".jpeg", ".jpe", ".png", ".webp", ".bmp", ".tiff", ".tif",

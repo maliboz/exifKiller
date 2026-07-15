@@ -9,12 +9,13 @@ import traceback
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from tkinter import TclError, filedialog, messagebox
+from tkinter import TclError, filedialog, messagebox, simpledialog
 from typing import Optional
 
 import customtkinter as ctk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
+from .constants import SUPPORTED_EXTENSIONS
 from .models import BatchResult, CleanResult, ScanResult, ToolConfig, VerificationResult
 from .reporting import write_report
 from .service import MetadataToolService
@@ -39,6 +40,12 @@ FONTS = {
     "body": ("Consolas", 11),
     "small": ("Consolas", 10),
 }
+
+TIMESTAMP_MODES = ("auto", "keep", "epoch", "random", "custom")
+
+# Built from the single source of truth so new formats show up in the file
+# picker automatically instead of silently being unselectable.
+SUPPORTED_FILE_GLOBS = " ".join(f"*{ext}" for ext in SUPPORTED_EXTENSIONS)
 
 
 class DnDCTk(ctk.CTk):
@@ -68,8 +75,10 @@ class ExifKillerApp:
         self.overwrite = False
         self.is_busy = False
         self.current_batch: Optional[BatchResult] = None
+        self.timestamp_value: Optional[str] = None
 
         self.profile_var = ctk.StringVar(value="safe")
+        self.timestamp_var = ctk.StringVar(value="auto")
         self.status_var = ctk.StringVar(value=self.t("status_ready"))
 
         self._set_icon()
@@ -185,6 +194,28 @@ class ExifKillerApp:
             border_color=COLORS["muted"],
         )
         self.profile_aggressive_button.pack(side="left")
+
+        self.timestamp_label = ctk.CTkLabel(
+            actions,
+            text=self.t("timestamp_label"),
+            text_color=COLORS["muted"],
+            font=FONTS["small"],
+        )
+        self.timestamp_label.grid(row=1, column=0, padx=(0, 8), pady=(8, 0), sticky="e")
+
+        self.timestamp_menu = ctk.CTkOptionMenu(
+            actions,
+            variable=self.timestamp_var,
+            values=list(TIMESTAMP_MODES),
+            command=self._on_timestamp_change,
+            fg_color=COLORS["panel_alt"],
+            button_color=COLORS["panel_alt"],
+            button_hover_color=COLORS["border"],
+            text_color=COLORS["text"],
+            font=FONTS["small"],
+            width=130,
+        )
+        self.timestamp_menu.grid(row=1, column=1, padx=(0, 12), pady=(8, 0), sticky="w")
 
         self.settings_button = ctk.CTkButton(
             actions,
@@ -426,10 +457,8 @@ class ExifKillerApp:
         selections = filedialog.askopenfilenames(
             title=self.t("add_files"),
             filetypes=[
-                (
-                    "Supported files",
-                    "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.tif *.pdf *.docx *.xlsx *.pptx",
-                )
+                ("Supported files", SUPPORTED_FILE_GLOBS),
+                ("All files", "*.*"),
             ],
         )
         if selections:
@@ -634,6 +663,7 @@ class ExifKillerApp:
         self.profile_label.configure(text=self.t("profile_label"))
         self.profile_safe_button.configure(text=self.t("safe"))
         self.profile_aggressive_button.configure(text=self.t("aggressive"))
+        self.timestamp_label.configure(text=self.t("timestamp_label"))
         self.lang_button.configure(text=get_current_language().upper())
         self.status_var.set(self.t("status_ready") if not self.is_busy else self.status_var.get())
         self._refresh_mode_label()
@@ -688,6 +718,8 @@ class ExifKillerApp:
                 output_dir=self.output_dir,
                 overwrite=self.overwrite,
                 recursive=True,
+                timestamp_mode=self._get_timestamp_mode(),
+                timestamp_value=self.timestamp_value,
             ),
             logger=self.log,
         )
@@ -716,6 +748,7 @@ class ExifKillerApp:
         self.settings_button.configure(state=state)
         self.profile_safe_button.configure(state=state)
         self.profile_aggressive_button.configure(state=state)
+        self.timestamp_menu.configure(state=state)
         self.lang_button.configure(state=state)
 
     def _refresh_file_box(self) -> None:
@@ -819,6 +852,49 @@ class ExifKillerApp:
     def _get_profile(self) -> str:
         profile = self.profile_var.get()
         return profile if profile in {"safe", "aggressive"} else "safe"
+
+    def _get_timestamp_mode(self) -> str:
+        mode = self.timestamp_var.get()
+        if mode not in TIMESTAMP_MODES:
+            return "auto"
+        # 'custom' without a date would be rejected by the service; fall back.
+        if mode == "custom" and not self.timestamp_value:
+            return "auto"
+        return mode
+
+    def _on_timestamp_change(self, mode: str) -> None:
+        if mode != "custom":
+            self.timestamp_value = None
+            self.log(f"[*] {self.t('timestamp_set').format(mode=mode)}")
+            return
+
+        answer = simpledialog.askstring(
+            self.t("timestamp_label"),
+            self.t("timestamp_prompt"),
+            initialvalue=self.timestamp_value or "2020-01-01",
+            parent=self.root,
+        )
+        if not answer or not self._validate_timestamp_value(answer.strip()):
+            if answer is not None:
+                messagebox.showerror(
+                    self.t("timestamp_label"), self.t("timestamp_invalid")
+                )
+            self.timestamp_var.set("auto")
+            self.timestamp_value = None
+            return
+
+        self.timestamp_value = answer.strip()
+        self.log(f"[*] {self.t('timestamp_custom_set').format(date=self.timestamp_value)}")
+
+    @staticmethod
+    def _validate_timestamp_value(value: str) -> bool:
+        for pattern in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                datetime.strptime(value, pattern)
+                return True
+            except ValueError:
+                continue
+        return False
 
     def _handle_tk_exception(self, exc_type, exc_value, exc_traceback) -> None:
         details = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))

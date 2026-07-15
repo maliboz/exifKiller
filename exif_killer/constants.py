@@ -19,7 +19,8 @@ IMAGE_EXTENSIONS: Final[tuple[str, ...]] = (
 )
 
 # Audio/video/modern-image containers cleaned by the native media engine
-# (pure-Python ISOBMFF, RIFF, ID3, FLAC parsers — no external tools).
+# (pure-Python ISOBMFF, Matroska/EBML, Ogg, RIFF, ID3, FLAC parsers — no
+# external tools).
 MEDIA_EXTENSIONS: Final[tuple[str, ...]] = (
     ".mp4",
     ".mov",
@@ -32,6 +33,13 @@ MEDIA_EXTENSIONS: Final[tuple[str, ...]] = (
     ".flac",
     ".wav",
     ".avi",
+    ".mkv",
+    ".webm",
+    ".ogg",
+    ".oga",
+    ".ogv",
+    ".opus",
+    ".spx",
 )
 
 DOCUMENT_EXTENSIONS: Final[tuple[str, ...]] = (

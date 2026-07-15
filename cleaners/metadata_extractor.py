@@ -135,7 +135,8 @@ class MetadataExtractor:
         elif ext in ['.docx', '.xlsx', '.pptx']:
             report = self._extract_office(file_path)
         elif ext in ['.mp4', '.mov', '.m4v', '.m4a', '.heic', '.heif', '.avif',
-                     '.mp3', '.flac', '.wav', '.avi']:
+                     '.mp3', '.flac', '.wav', '.avi', '.mkv', '.webm',
+                     '.ogg', '.oga', '.ogv', '.opus', '.spx']:
             report = self._extract_media(file_path, ext)
         else:
             report = MetadataReport(file_path=file_path, file_type="unknown")
@@ -270,7 +271,7 @@ class MetadataExtractor:
                                 if tag_name not in report.metadata:
                                     report.metadata[tag_name] = self._format_value(value)
                                     report.raw_fields.append(tag_name)
-                except:
+                except Exception:
                     pass
                 
                 # Check image.info for additional metadata (including IPTC)
@@ -325,7 +326,7 @@ class MetadataExtractor:
                         if thumb:
                             report.metadata['Thumbnail'] = f"PRESENT ({len(thumb)} bytes)"
                             report.warnings.append("Embedded thumbnail detected - may contain unredacted preview!")
-                except:
+                except Exception:
                     pass
                     
         except Exception as e:
@@ -372,7 +373,7 @@ class MetadataExtractor:
                             if match:
                                 report.metadata[f"XMP.{field_name}"] = match.group(1)
                                 report.raw_fields.append(field_name)
-                    except:
+                    except Exception:
                         pass
                 
                 # Document ID
@@ -536,7 +537,7 @@ class MetadataExtractor:
                         if rsid_count > 0:
                             report.metadata['RevisionIDs'] = f"{rsid_count} rsid markers"
                             report.warnings.append(f"Revision tracking: {rsid_count} edit markers found!")
-                    except:
+                    except Exception:
                         pass
                 
                 # Count embedded images
@@ -652,7 +653,7 @@ class MetadataExtractor:
             with open(file_path, 'rb') as handle:
                 data = handle.read()
 
-            from . import isobmff, native_media
+            from . import isobmff, matroska, native_media, ogg
 
             found: Dict[str, str] = {}
             if ext in ('.mp4', '.mov', '.m4v', '.m4a'):
@@ -665,6 +666,10 @@ class MetadataExtractor:
                 found = native_media.describe_flac(data)
             elif ext in ('.wav', '.avi'):
                 found = native_media.describe_riff(data)
+            elif ext in ('.mkv', '.webm'):
+                found = matroska.describe_matroska(data)
+            elif ext in ('.ogg', '.oga', '.ogv', '.opus', '.spx'):
+                found = ogg.describe_ogg(data)
 
             for key, value in found.items():
                 report.metadata[key] = value
@@ -676,8 +681,9 @@ class MetadataExtractor:
         return report
 
     def _media_file_type(self, ext: str) -> str:
-        video = {'.mp4', '.mov', '.m4v', '.avi'}
-        audio = {'.mp3', '.flac', '.m4a', '.wav'}
+        video = {'.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm', '.ogv'}
+        audio = {'.mp3', '.flac', '.m4a', '.wav', '.ogg', '.oga', '.opus',
+                 '.spx'}
         if ext in video:
             return 'video'
         if ext in audio:
@@ -689,7 +695,7 @@ class MetadataExtractor:
         if isinstance(value, bytes):
             try:
                 return value.decode('utf-8')
-            except:
+            except Exception:
                 return f"<binary: {len(value)} bytes>"
         elif isinstance(value, (list, tuple)):
             return ', '.join(str(v) for v in value[:5])
@@ -697,12 +703,12 @@ class MetadataExtractor:
             return str(value)
 
 
-def compare_reports(before: MetadataReport, after: MetadataReport) -> Dict[str, Dict]:
+def compare_reports(before: MetadataReport, after: MetadataReport) -> Dict[str, Any]:
     """
     Compare two metadata reports and return differences.
-    
+
     Returns:
-        Dict with 'removed', 'remaining', 'added' keys
+        Dict with 'removed', 'remaining', 'added' field maps plus count totals.
     """
     before_keys = set(before.metadata.keys())
     after_keys = set(after.metadata.keys())

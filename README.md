@@ -23,10 +23,10 @@ Everything is handled by **pure-Python parsers with no external tools and no
 re-encoding** — the media payload is preserved byte-for-byte and only metadata
 is removed.
 
-- Images: `jpg`, `jpeg`, `png`, `webp`, `bmp`, `tiff`, `tif`, `gif`, `svg`
+- Images: `jpg`, `jpeg`, `jpe`, `png`, `webp`, `bmp`, `tiff`, `tif`, `gif`, `svg`
 - Modern images: `heic`, `heif`, `avif`
-- Video: `mp4`, `mov`, `m4v`, `avi`
-- Audio: `mp3`, `flac`, `m4a`, `wav`
+- Video: `mp4`, `mov`, `m4v`, `avi`, `mkv`, `webm`, `ogv`
+- Audio: `mp3`, `flac`, `m4a`, `wav`, `ogg`, `oga`, `opus`, `spx`
 - Documents: `pdf`, `docx`, `xlsx`, `pptx`
 
 How each family is cleaned:
@@ -40,6 +40,17 @@ How each family is cleaned:
   offset tables stay valid and the media is not touched.
 - **HEIC/HEIF/AVIF** — the EXIF/XMP item payloads are zeroed surgically inside
   `mdat` while the image items are left intact.
+- **MKV/WebM** (Matroska/EBML) — `Tags`, `Attachments`, `Title`, `DateUTC`,
+  `SegmentUID`, and track names are overwritten in place with EBML `Void`
+  padding of identical size, so the file length never changes and the
+  `SeekHead`/`Cues` offset indexes stay valid. Index entries pointing at removed
+  elements are pruned; the mandatory `MuxingApp`/`WritingApp` strings are
+  zero-filled rather than deleted, which EBML explicitly permits.
+- **Ogg/Opus/Vorbis/Theora/Speex** — the comment header's vendor string (an
+  encoder fingerprint) and every user tag, including embedded cover art, are
+  removed. Ogg has no offset index, so the header pages are genuinely rebuilt:
+  lacing tables recomputed, page sequence renumbered, and the Ogg CRC32
+  recalculated. Audio pages are copied through byte-for-byte.
 - **MP3** — ID3v2, ID3v1, and APEv2 tags are stripped, keeping the audio frames.
 - **FLAC** — `VORBIS_COMMENT` and `PICTURE` blocks are removed.
 - **WAV/AVI** (RIFF) — `INFO`/`ID3`/`bext` metadata chunks are removed.
@@ -52,6 +63,13 @@ How each family is cleaned:
 `safe` is the default profile. `aggressive` is recommended when compatibility tradeoffs are acceptable.
 
 ## Verification Model
+
+Cleaning is always paired with a re-scan, but a tool checking its own work with
+its own parser shares its own blind spots. The test suite therefore cross-checks
+the Ogg engine against [mutagen](https://mutagen.readthedocs.io/), a third-party
+implementation: it must see the tags before cleaning and must still parse the
+result as a valid stream afterwards. mutagen is a dev-only extra — the tool
+itself has no such dependency, and those tests skip when it is absent.
 
 Exif Killer classifies findings into five categories:
 
@@ -151,7 +169,12 @@ mypy
 ## Known Limitations
 
 - Windows is the primary release target for `v0.1.0-alpha`
-- Matroska (`mkv`/`webm`), Ogg/Opus, and camera RAW are not yet natively supported
+- Camera RAW (`cr2`/`nef`/`arw`/`dng`) and OpenDocument (`odt`/`ods`/`odp`) are
+  not yet supported
+- Ogg FLAC (FLAC inside an Ogg container) is detected but not stripped; native
+  `.flac` files are fully handled
+- Matroska cleaning is byte-exact by design, so a file never shrinks: metadata is
+  replaced with `Void` padding rather than cut out
 - Recursive archive inspection is not in the alpha scope
 - Creation-time rewriting is Windows-only; modification/access times are set on all platforms
 
