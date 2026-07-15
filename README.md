@@ -11,8 +11,10 @@ Exif Killer is a Windows-first alpha project that focuses on trustworthy metadat
 Exif Killer is designed for scenarios where metadata can expose operator identity, source application details, location hints, or document history. The tool is especially useful when handling:
 
 - images with author, software, or GPS metadata
+- camera RAW files, whose MakerNote typically carries a body serial number and shutter count
+- video and audio whose containers record device, location, and encoder fingerprints
 - PDFs with DocInfo, XMP, document IDs, or embedded content
-- Office documents with author fields, comment identities, revision traces, or preview thumbnails
+- Office and OpenDocument files with author fields, comment identities, revision traces, or preview thumbnails
 - Windows files that may carry download-zone artifacts or filesystem timeline hints
 
 Exif Killer does not claim to erase every possible forensic artifact in every format. The product goal is narrower and more honest: sanitize what it knows, verify the result, and report what still remains.
@@ -27,7 +29,10 @@ is removed.
 - Modern images: `heic`, `heif`, `avif`
 - Video: `mp4`, `mov`, `m4v`, `avi`, `mkv`, `webm`, `ogv`
 - Audio: `mp3`, `flac`, `m4a`, `wav`, `ogg`, `oga`, `opus`, `spx`
+- Camera RAW: `cr2`, `nef`, `nrw`, `arw`, `sr2`, `srf`, `dng`, `orf`, `rw2`,
+  `pef`, `srw`, `3fr`, `mef`, `mos`, `erf`, `dcr`, `kdc`
 - Documents: `pdf`, `docx`, `xlsx`, `pptx`
+- OpenDocument: `odt`, `ods`, `odp`, `odg`, `odf`, `ott`, `ots`, `otp`
 
 How each family is cleaned:
 
@@ -54,6 +59,17 @@ How each family is cleaned:
 - **MP3** — ID3v2, ID3v1, and APEv2 tags are stripped, keeping the audio frames.
 - **FLAC** — `VORBIS_COMMENT` and `PICTURE` blocks are removed.
 - **WAV/AVI** (RIFF) — `INFO`/`ID3`/`bext` metadata chunks are removed.
+- **Camera RAW** (TIFF-based) — EXIF, GPS, XMP, IPTC, MakerNote (which hides
+  serial numbers and shutter counts), and DNG identity tags are removed by
+  compacting the IFD entry array in place. Sensor data is referenced by absolute
+  offsets, so nothing is allowed to move: the file size never changes and the
+  raw pixels are bit-for-bit identical. See the RAW note below for the
+  Make/Model tradeoff.
+- **OpenDocument** — `meta.xml` is replaced with an empty one; annotation and
+  tracked-change identities, author fields, thumbnails, and `settings.xml` are
+  removed; embedded `Pictures/` are stripped losslessly; and the manifest is
+  kept in sync. ZIP entry timestamps are reset, since they otherwise record when
+  the document was last edited.
 
 ## Cleaning Profiles
 
@@ -62,14 +78,30 @@ How each family is cleaned:
 
 `safe` is the default profile. `aggressive` is recommended when compatibility tradeoffs are acceptable.
 
+### The RAW Make/Model tradeoff
+
+RAW converters identify the sensor from the `Make`/`Model` tags to pick a
+demosaic and colour profile, so removing them can leave a file some converters
+refuse to open. `safe` therefore keeps them — and reports them as remaining
+`identifying` findings rather than pretending the file is clean. `aggressive`
+removes them, along with `UniqueCameraModel`, and strips the EXIF out of
+embedded preview JPEGs.
+
+Preview stripping is deliberately conservative: lossless-JPEG-compressed sensor
+data begins with the same SOI marker as a preview, and is distinguished only by
+its photometric interpretation. Anything that could be sensor data is left
+alone.
+
 ## Verification Model
 
 Cleaning is always paired with a re-scan, but a tool checking its own work with
 its own parser shares its own blind spots. The test suite therefore cross-checks
-the Ogg engine against [mutagen](https://mutagen.readthedocs.io/), a third-party
-implementation: it must see the tags before cleaning and must still parse the
-result as a valid stream afterwards. mutagen is a dev-only extra — the tool
-itself has no such dependency, and those tests skip when it is absent.
+against third-party implementations that must independently agree: Pillow for
+TIFF/RAW (the cleaned file must still decode, with identical pixels and the
+metadata tags gone) and [mutagen](https://mutagen.readthedocs.io/) for Ogg (it
+must see the tags before cleaning and still parse a valid stream afterwards).
+mutagen is a dev-only extra — the tool itself never imports it, and those tests
+skip when it is absent.
 
 Exif Killer classifies findings into five categories:
 
@@ -169,14 +201,19 @@ mypy
 ## Known Limitations
 
 - Windows is the primary release target for `v0.1.0-alpha`
-- Camera RAW (`cr2`/`nef`/`arw`/`dng`) and OpenDocument (`odt`/`ods`/`odp`) are
-  not yet supported
+- RAW support covers TIFF-based formats only. Canon CR3 (ISOBMFF-based), Fuji
+  RAF, and Sigma X3F are not TIFF containers and are not handled. BigTIFF is
+  refused rather than guessed at
+- RAW and Matroska cleaning are byte-exact by design, so those files never
+  shrink: metadata is overwritten in place rather than cut out, because their
+  internal offset tables would otherwise break
 - Ogg FLAC (FLAC inside an Ogg container) is detected but not stripped; native
   `.flac` files are fully handled
-- Matroska cleaning is byte-exact by design, so a file never shrinks: metadata is
-  replaced with `Void` padding rather than cut out
 - Recursive archive inspection is not in the alpha scope
 - Creation-time rewriting is Windows-only; modification/access times are set on all platforms
+- The container engines are tested against hand-built fixtures and cross-checked
+  with third-party parsers (Pillow for TIFF/RAW, mutagen for Ogg), but have not
+  yet been run against a corpus of real camera output
 
 ## License
 

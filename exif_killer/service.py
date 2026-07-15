@@ -10,11 +10,13 @@ from cleaners import (
     ImageCleaner,
     MediaCleaner,
     MetadataExtractor,
+    ODFCleaner,
     OfficeCleaner,
     PDFCleaner,
+    RawCleaner,
 )
 
-from .constants import BACKEND_NAME, SUPPORTED_EXTENSIONS
+from .constants import BACKEND_NAME, RAW_EXTENSIONS, SUPPORTED_EXTENSIONS
 from .hashes import sha256_file
 from .models import (
     BatchResult,
@@ -44,8 +46,10 @@ class MetadataToolService:
         self.cleaners = [
             ImageCleaner(self._log),
             MediaCleaner(self._log),
+            RawCleaner(self._log),
             PDFCleaner(self._log),
             OfficeCleaner(self._log),
+            ODFCleaner(self._log),
         ]
         self.supported_extensions = set(SUPPORTED_EXTENSIONS)
         self._configure_cleaners()
@@ -371,6 +375,11 @@ class MetadataToolService:
             return "pdf"
         if extension in {".docx", ".xlsx", ".pptx"}:
             return "office"
+        if extension in {".odt", ".ods", ".odp", ".odg", ".odf", ".ott",
+                         ".ots", ".otp"}:
+            return "opendocument"
+        if extension in RAW_EXTENSIONS:
+            return "raw"
         if extension in {".mp4", ".mov", ".m4v", ".mkv", ".avi", ".webm", ".ogv"}:
             return "video"
         if extension in {

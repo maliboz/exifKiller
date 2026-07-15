@@ -71,13 +71,17 @@ def classify_key(file_type: str, key: str, value: str) -> RiskCategory:
         return "technical"
 
     if normalized_key in {
-        "thumbnail",
         "embeddedfiles",
         "associatedfiles",
         "javascript",
         "renditions",
         "photoshopdata",
     }:
+        return "embedded-content"
+
+    # Substring match: these appear namespaced too (ODF.Thumbnail,
+    # RAW.EmbeddedPreview), not just as bare keys.
+    if _contains_any(normalized_key, {"thumbnail", "embeddedpreview"}):
         return "embedded-content"
 
     if _contains_any(
@@ -112,6 +116,11 @@ def classify_key(file_type: str, key: str, value: str) -> RiskCategory:
             "timestamp",
             "totaltime",
             "template",
+            # Any date field is a timeline leak, however it is namespaced
+            # (RAW.DateTimeOriginal, ODF.PrintDate, ODF.Date...).
+            "date",
+            "editingcycles",
+            "editingduration",
         },
     ):
         return "tracking"
@@ -154,6 +163,11 @@ def classify_key(file_type: str, key: str, value: str) -> RiskCategory:
             "encodedby",
             "trackname",
             "filename",
+            "generator",
+            "printedby",
+            "keyword",
+            "serialnumber",
+            "makernote",
         },
     ):
         return "identifying"
