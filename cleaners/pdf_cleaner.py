@@ -154,7 +154,13 @@ class PDFCleaner(BaseCleaner):
                 linearize=False,  # Don't add /L parameter
                 object_stream_mode=pikepdf.ObjectStreamMode.generate,
                 compress_streams=True,
-                preserve_pdfa=False  # Don't preserve PDF/A metadata
+                preserve_pdfa=False,  # Don't preserve PDF/A metadata
+                # The PDF spec effectively requires a trailer /ID, and pikepdf
+                # writes one back on every save no matter what we deleted. A
+                # random one would be a fresh correlation handle; a
+                # deterministic one is a hash of the file's own content, which
+                # discloses nothing the file does not already disclose.
+                deterministic_id=True,
             )
         
         return temp_path
@@ -183,7 +189,8 @@ class PDFCleaner(BaseCleaner):
                 linearize=False,
                 object_stream_mode=pikepdf.ObjectStreamMode.generate,
                 compress_streams=True,
-                preserve_pdfa=False
+                preserve_pdfa=False,
+                deterministic_id=True,
             )
         
         return output_path

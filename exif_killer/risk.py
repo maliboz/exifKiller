@@ -79,9 +79,11 @@ def classify_key(file_type: str, key: str, value: str) -> RiskCategory:
     }:
         return "embedded-content"
 
-    # Substring match: these appear namespaced too (ODF.Thumbnail,
-    # RAW.EmbeddedPreview), not just as bare keys.
-    if _contains_any(normalized_key, {"thumbnail", "embeddedpreview"}):
+    # Substring match: a thumbnail is namespaced in some formats (ODF.Thumbnail)
+    # and bare in others. RAW.PreviewEXIF is the metadata inside an embedded
+    # preview; the preview itself (RAW.EmbeddedPreview) only renders the same
+    # photo and is treated as technical below.
+    if _contains_any(normalized_key, {"thumbnail", "previewexif"}):
         return "embedded-content"
 
     if _contains_any(
