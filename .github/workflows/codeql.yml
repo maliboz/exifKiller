@@ -26,4 +26,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools
           pip install -e .[dev]
-      - uses: github/codeql-action/analyze@v4
+      - id: analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          # This repository currently cannot upload SARIF to GitHub Code
+          # Scanning. Run CodeQL anyway and keep the SARIF as a workflow
+          # artifact, so a disabled repository feature does not make CI red.
+          upload: never
+      - name: Upload CodeQL SARIF
+        uses: actions/upload-artifact@v7
+        with:
+          name: codeql-sarif
+          path: ${{ steps.analyze.outputs.sarif-output }}/*.sarif
+          if-no-files-found: error
