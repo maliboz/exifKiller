@@ -268,6 +268,8 @@ def _raw_sensor_identical(before, after, original: bytes, cleaned: bytes) -> Che
                     )
                 total += cnt
 
+    if not total:
+        return Check("sensor-data", True, "no strip/tile payload located; skipped")
     return Check("sensor-data", True, f"{total} bytes identical")
 
 

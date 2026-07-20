@@ -101,6 +101,17 @@ def test_integrity_catches_dropped_structural_tag() -> None:
     assert _failed(checks)  # structural-tags and/or sensor-data must complain
 
 
+def test_raw_sensor_check_says_skipped_when_no_payload_offsets() -> None:
+    """Some RAW dialects do not expose standard TIFF strip/tile payload tags."""
+    minimal_tiff = b"II*\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    checks = check_integrity(".rw2", minimal_tiff, minimal_tiff)
+    sensor = next(check for check in checks if check.name == "sensor-data")
+
+    assert sensor.passed
+    assert "skipped" in sensor.detail
+
+
 def test_integrity_catches_damaged_matroska_cluster() -> None:
     original = _build_mkv()
     cleaned = bytearray(matroska.clean_matroska(original)[0])

@@ -31,3 +31,9 @@ exif-killer-selftest-*/
 exif_test/
 corpus/
 samples/
+
+# User-provided real-file samples kept only for local public-readiness checks.
+/file_example_AVI_1280_1_5MG.avi
+/sample1.orf
+/sample1.rw2
+/sample1.raf
