@@ -96,6 +96,7 @@ TECHNICAL_EXACT_FIELDS: Final[frozenset[str]] = frozenset(
         "PageCount",
         "FileSize",
         "EmbeddedImages",
+        "Document_ID_Static",
         "Info.jfif",
         "Info.jfif_version",
         "Info.jfif_unit",

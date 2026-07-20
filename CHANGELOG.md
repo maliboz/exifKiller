@@ -59,8 +59,8 @@ their offset tables cannot break.
 ### Fixes
 
 - PDF: a latent bug made the page and annotation `/AF` removal unreachable
-- PDF: the trailer `/ID` is now generated deterministically from file content
-  rather than fresh entropy
+- PDF: trackable trailer `/ID` values are neutralized to a non-unique static ID
+  because pikepdf/qpdf writes one back on every save
 - risk classification: encoder fingerprints such as `WritingApp` and `Ogg.Vendor`
   were classified as technical and silently passed verification
 - RIFF: chunk walking stopped at EOF rather than the declared RIFF end, reading

@@ -343,7 +343,11 @@ class MetadataExtractor:
     
     def _extract_pdf(self, file_path: str) -> MetadataReport:
         """Extract ALL metadata from PDFs including hidden streams."""
-        from .pdf_cleaner import pdf_support_available, pdf_support_error
+        from .pdf_cleaner import (
+            NEUTRAL_DOCUMENT_ID_HEX,
+            pdf_support_available,
+            pdf_support_error,
+        )
 
         report = MetadataReport(file_path=file_path, file_type="pdf")
 
@@ -391,8 +395,12 @@ class MetadataExtractor:
                 
                 # Document ID
                 if '/ID' in pdf.trailer:
-                    report.metadata['Document_ID'] = "PRESENT"
-                    report.warnings.append("Document ID can track document copies!")
+                    ids = self._pdf_document_id_hex_values(pdf.trailer['/ID'])
+                    if ids and all(item == NEUTRAL_DOCUMENT_ID_HEX for item in ids):
+                        report.metadata['Document_ID_Static'] = "NEUTRAL"
+                    else:
+                        report.metadata['Document_ID'] = "PRESENT"
+                        report.warnings.append("Document ID can track document copies!")
                 
                 # Page count
                 report.metadata['PageCount'] = str(len(pdf.pages))
@@ -572,6 +580,19 @@ class MetadataExtractor:
             report.warnings.append(f"Extraction error: {str(e)}")
         
         return report
+
+    def _pdf_document_id_hex_values(self, raw_id: object) -> List[str]:
+        """Return PDF trailer ID byte strings as lowercase hex, if readable."""
+        ids: List[str] = []
+        try:
+            for item in raw_id:
+                try:
+                    ids.append(bytes(item).hex())
+                except Exception:
+                    ids.append(str(item))
+        except Exception:
+            return []
+        return ids
 
     def _extract_office_comment_metadata(self, zf, namelist: List[str],
                                          report: MetadataReport, ext: str) -> None:

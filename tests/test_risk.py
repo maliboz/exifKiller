@@ -10,6 +10,8 @@ def test_risk_classification_uses_shared_categories() -> None:
             "Format": "JPEG",
             "JavaScript": "PRESENT",
             "Zone.Identifier": "PRESENT",
+            "Document_ID": "PRESENT",
+            "Document_ID_Static": "NEUTRAL",
         },
     )
 
@@ -20,3 +22,5 @@ def test_risk_classification_uses_shared_categories() -> None:
     assert by_key["Format"] == "technical"
     assert by_key["JavaScript"] == "embedded-content"
     assert by_key["Zone.Identifier"] == "tracking"
+    assert by_key["Document_ID"] == "tracking"
+    assert by_key["Document_ID_Static"] == "technical"

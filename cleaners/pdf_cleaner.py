@@ -2,8 +2,8 @@
 PDF Cleaner - Forensic-level PDF metadata removal.
 Uses pikepdf for complete metadata elimination.
 
-FORENSIC LEVEL: This cleaner uses multiple techniques to ensure
-complete metadata removal that can withstand forensic analysis.
+FORENSIC LEVEL: This cleaner uses multiple techniques to remove direct
+metadata and neutralize PDF trailer identifiers.
 """
 
 from typing import List, Optional, Callable
@@ -11,6 +11,8 @@ import os
 import tempfile
 
 from .base import BaseCleaner
+
+NEUTRAL_DOCUMENT_ID_HEX = "31415926535897932384626433832795"
 
 # pikepdf is a C extension. On Windows it fails to load whenever the Visual C++
 # runtime is missing, and a plain `import pikepdf` at module scope would then
@@ -64,7 +66,7 @@ class PDFCleaner(BaseCleaner):
     Removes:
     - Document Info dictionary (Author, Creator, Producer, CreationDate, etc.)
     - XMP metadata streams
-    - Document IDs 
+    - Document IDs (neutralized to a non-unique static value when pikepdf saves)
     - Piece Info dictionaries
     - Page Piece dictionaries
     - Marked Content
@@ -128,7 +130,7 @@ class PDFCleaner(BaseCleaner):
             self.log(f"[OK] PDF cleaned: {os.path.basename(output_path)}")
             self.log("[OK] DocInfo completely removed")
             self.log("[OK] XMP metadata removed")
-            self.log("[OK] Document ID removed")
+            self.log("[OK] Document ID neutralized")
             self.log("[OK] Catalog metadata cleaned")
             
             return output_path
@@ -198,12 +200,10 @@ class PDFCleaner(BaseCleaner):
                 object_stream_mode=pikepdf.ObjectStreamMode.generate,
                 compress_streams=True,
                 preserve_pdfa=False,  # Don't preserve PDF/A metadata
-                # The PDF spec effectively requires a trailer /ID, and pikepdf
-                # writes one back on every save no matter what we deleted. A
-                # random one would be a fresh correlation handle; a
-                # deterministic one is a hash of the file's own content, which
-                # discloses nothing the file does not already disclose.
-                deterministic_id=True,
+                # pikepdf/qpdf writes a trailer /ID back on every save even
+                # after deletion. A fresh or content-derived ID is still a
+                # correlation handle, so use qpdf's non-unique static ID.
+                static_id=True,
             )
         
         return temp_path
@@ -233,7 +233,7 @@ class PDFCleaner(BaseCleaner):
                 object_stream_mode=pikepdf.ObjectStreamMode.generate,
                 compress_streams=True,
                 preserve_pdfa=False,
-                deterministic_id=True,
+                static_id=True,
             )
         
         return output_path

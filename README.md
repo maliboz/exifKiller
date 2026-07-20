@@ -105,8 +105,10 @@ How each family is cleaned:
 - **MP3** — ID3v2, ID3v1, and APEv2 tags.
 - **FLAC** — `VORBIS_COMMENT` and `PICTURE` blocks.
 - **WAV / AVI** — `INFO`, `ID3`, and `bext` chunks.
-- **PDF** — DocInfo, XMP, PieceInfo, embedded files, JavaScript, and associated
-  file references.
+- **PDF** — DocInfo, XMP, PieceInfo, embedded files, JavaScript, associated
+  file references, and trackable trailer IDs. pikepdf/qpdf writes a trailer
+  `/ID` back on save, so Exif Killer replaces it with a non-unique static ID
+  rather than leaving a per-document correlation handle.
 - **Office (OOXML)** — `docProps`, comment and revision identities, rsid markers,
   thumbnails, and the EXIF inside embedded images.
 - **OpenDocument** — `meta.xml` is replaced with an empty one; annotation and
@@ -356,10 +358,10 @@ the risk taxonomy, reporting, and the two frontends.
 - RAW, CRW, and Matroska cleaning are byte-exact by design, so those files never
   shrink: metadata is overwritten in place rather than cut out, because their
   internal offset tables would otherwise break.
-- The PDF specification effectively requires a trailer `/ID`, and pikepdf writes
-  one back on every save. Ours is generated deterministically from the file's own
-  content, so it carries no machine or time entropy, but it is still reported as
-  a finding rather than quietly excused.
+- pikepdf/qpdf writes a trailer `/ID` back on every PDF save even after deletion.
+  Exif Killer replaces that value with a non-unique static ID. Original,
+  trackable document IDs are still reported; the neutral replacement is treated
+  as a technical compatibility field.
 - A RAW's embedded preview is kept: it renders the same photo the file already
   contains. Its own EXIF is stripped under `aggressive`.
 - Recursive archive inspection is not in the alpha scope.
@@ -474,8 +476,10 @@ Her format ailesinin temizlenme biçimi:
 - **MP3** — ID3v2, ID3v1 ve APEv2 etiketleri.
 - **FLAC** — `VORBIS_COMMENT` ve `PICTURE` blokları.
 - **WAV / AVI** — `INFO`, `ID3` ve `bext` chunk'ları.
-- **PDF** — DocInfo, XMP, PieceInfo, gömülü dosyalar, JavaScript ve ilişkili
-  dosya referansları.
+- **PDF** — DocInfo, XMP, PieceInfo, gömülü dosyalar, JavaScript, ilişkili
+  dosya referansları ve izlenebilir trailer ID'leri. pikepdf/qpdf her kayıtta
+  trailer `/ID` alanını yeniden yazar; Exif Killer belgeye özel korelasyon
+  tutamacı bırakmak yerine bunu benzersiz olmayan sabit bir ID ile değiştirir.
 - **Office (OOXML)** — `docProps`, yorum ve revizyon kimlikleri, rsid işaretleri,
   küçük resimler ve gömülü görsellerin içindeki EXIF.
 - **OpenDocument** — `meta.xml` boş bir dosyayla değiştirilir; açıklama ve
@@ -724,10 +728,10 @@ risk sınıflandırması, raporlama ve iki arayüz.
 - RAW, CRW ve Matroska temizliği tasarımı gereği byte hassasiyetindedir, bu
   yüzden bu dosyalar hiç küçülmez: metadata kesilip atılmak yerine yerinde
   üzerine yazılır, çünkü aksi halde iç offset tabloları bozulurdu.
-- PDF spesifikasyonu fiilen bir trailer `/ID` gerektirir ve pikepdf her kayıtta
-  yeniden bir tane yazar. Bizimki dosyanın kendi içeriğinden deterministik olarak
-  üretilir, yani makine veya zaman entropisi taşımaz; yine de sessizce
-  geçiştirilmek yerine bir bulgu olarak raporlanır.
+- pikepdf/qpdf silindikten sonra bile her PDF kaydında trailer `/ID` alanını
+  yeniden yazar. Exif Killer bu değeri benzersiz olmayan sabit bir ID ile
+  değiştirir. Özgün, izlenebilir belge ID'leri hâlâ raporlanır; nötr yedek değer
+  teknik uyumluluk alanı olarak ele alınır.
 - Bir RAW'ın gömülü önizlemesi korunur: dosyanın zaten içerdiği fotoğrafın
   aynısını gösterir. Kendi EXIF'i `aggressive` altında temizlenir.
 - Özyinelemeli arşiv incelemesi alpha kapsamında değildir.

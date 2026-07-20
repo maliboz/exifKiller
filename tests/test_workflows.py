@@ -124,7 +124,7 @@ def test_safe_image_clean_removes_identifying_metadata() -> None:
         assert not result.blocking_findings
 
 
-def test_safe_pdf_clean_removes_docinfo_even_if_pdf_id_remains() -> None:
+def test_safe_pdf_clean_removes_docinfo_and_neutralizes_pdf_id() -> None:
     with workspace_tempdir() as tmp_path:
         source = tmp_path / "sample.pdf"
         create_pdf_with_docinfo(source)
@@ -132,10 +132,11 @@ def test_safe_pdf_clean_removes_docinfo_even_if_pdf_id_remains() -> None:
         service = MetadataToolService(ToolConfig(profile="safe"))
         result = service.clean_file(str(source))
 
-        assert result.status == "warning"
+        assert result.status == "clean"
         assert "DocInfo.Author" in result.removed_fields
         assert "DocInfo.Creator" in result.removed_fields
-        assert any(finding.key == "Document_ID" for finding in result.remaining_findings)
+        assert "Document_ID" not in result.after_scan.metadata
+        assert result.after_scan.metadata["Document_ID_Static"] == "NEUTRAL"
 
 
 def test_aggressive_docx_clean_removes_revision_and_thumbnail() -> None:
