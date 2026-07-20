@@ -13,7 +13,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-      security-events: read
+      security-events: write
     steps:
       - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v4
@@ -28,11 +28,6 @@ jobs:
           pip install -e .[dev]
       - id: analyze
         uses: github/codeql-action/analyze@v4
-        with:
-          # This repository currently cannot upload SARIF to GitHub Code
-          # Scanning. Run CodeQL anyway and keep the SARIF as a workflow
-          # artifact, so a disabled repository feature does not make CI red.
-          upload: never
       - name: Upload CodeQL SARIF
         uses: actions/upload-artifact@v7
         with:
