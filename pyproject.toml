@@ -36,7 +36,7 @@ dependencies = [
 dev = [
   # New mypy minor releases can add diagnostics. Keep local and CI checks on the
   # same minor line, then let Dependabot propose the next line intentionally.
-  "mypy>=2.3,<2.4",
+  "mypy>=2.3,<2.5",
   # Third-party Ogg/ID3 parser used ONLY as a test oracle, to cross-check our
   # native output against an implementation we did not write. The tool never
   # imports it; the suite skips those tests when it is absent.
